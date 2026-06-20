@@ -261,31 +261,26 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 </style>
 <body>
 <div id="pgLogin" style="display:flex;align-items:center;justify-content:center;background:#0a0f1e;position:fixed;inset:0;z-index:9999;overflow-y:auto;padding:20px;box-sizing:border-box;">
-  <div style="width:100%;max-width:380px;">
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:26px;font-weight:700;color:#f1f5f9;">Deriv<span style="color:#38bdf8;">AI</span></div>
-      <div style="font-size:11px;color:#38bdf8;font-weight:700;letter-spacing:2px;margin-top:4px;">VERSION 9.0 — FIXED</div>
-      <div style="font-size:10px;color:#475569;letter-spacing:2px;margin-top:6px;">LIVE ANALYSIS &middot; AI ENGINE</div>
+  <div style="width:100%;max-width:400px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="width:12px;height:12px;border-radius:50%;background:#38bdf8;box-shadow:0 0 18px #38bdf8;margin:0 auto 16px;animation:pulse 2.5s infinite;"></div>
+      <div style="font-size:28px;font-weight:700;color:#f1f5f9;letter-spacing:-.5px;">Deriv<span style="color:#38bdf8;">AI</span></div>
+      <div style="font-size:10px;color:#475569;letter-spacing:2px;margin-top:6px;">PIONEER &middot; POWER &middot; BOY BOY</div>
     </div>
-    <div style="background:#151d2e;border:1px solid #1f2d45;border-radius:16px;padding:24px;">
-      <div style="font-size:9px;color:#475569;letter-spacing:1px;margin-bottom:14px;">HOW TO GET YOUR API TOKEN</div>
-      <div style="font-size:12px;color:#94a3b8;line-height:2;margin-bottom:18px;">
-        1. Go to <strong style="color:#38bdf8;">app.deriv.com</strong> &rarr; Account Settings<br>
-        2. Click <strong style="color:#f1f5f9;">API Token</strong> in left menu<br>
-        3. Create token with <strong style="color:#f1f5f9;">Read + Trade</strong> scope<br>
-        4. Copy and paste below
-      </div>
-      <div id="LE" style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:#ef4444;font-size:12px;"></div>
+    <div style="background:#151d2e;border:1px solid #1f2d45;border-radius:18px;padding:28px 24px;box-shadow:0 24px 48px rgba(0,0,0,.5);">
+      <div id="LE" style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;color:#ef4444;font-size:12px;text-align:center;"></div>
+      <button id="oauthBtn" type="button" onclick="doOAuth()" style="width:100%;padding:16px;background:linear-gradient(135deg,#e94057,#c0392b);border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;box-sizing:border-box;box-shadow:0 4px 20px rgba(233,64,87,.4);">&#128279; LOGIN WITH DERIV</button>
+      <div style="font-size:11px;color:#475569;text-align:center;margin-bottom:20px;">Tap above &middot; Approve on Deriv &middot; Automatically logged in &middot; No token needed</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;"><div style="flex:1;height:1px;background:#1f2d45;"></div><span style="color:#475569;font-size:11px;">or use API token</span><div style="flex:1;height:1px;background:#1f2d45;"></div></div>
       <div style="position:relative;margin-bottom:8px;">
-        <input id="tokenInput" type="password" placeholder="Paste your API token here..." style="width:100%;padding:12px 44px 12px 12px;background:#111827;border:1px solid #1f2d45;border-radius:9px;color:#f1f5f9;font-size:13px;outline:none;-webkit-appearance:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')loginGo();"/>
+        <input id="tokenInput" type="password" placeholder="Paste API token here..." style="width:100%;padding:12px 44px 12px 12px;background:#111827;border:1px solid #1f2d45;border-radius:9px;color:#f1f5f9;font-size:13px;outline:none;-webkit-appearance:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')loginGo();"/>
         <button type="button" onclick="var i=document.getElementById('tokenInput');i.type=i.type==='password'?'text':'password';" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer;font-size:16px;">&#128065;</button>
       </div>
-      <div style="font-size:10px;color:#475569;text-align:center;margin-bottom:16px;">Token sent only to Deriv WebSocket &middot; Never stored</div>
-      <button id="loginBtn" type="button" onclick="loginGo()" style="width:100%;padding:13px;background:#ef4444;border:none;border-radius:9px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;box-sizing:border-box;">&#128308; CONNECT TO DERIV</button>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><div style="flex:1;height:1px;background:#1f2d45;"></div><span style="color:#475569;font-size:11px;">or</span><div style="flex:1;height:1px;background:#1f2d45;"></div></div>
-      <button type="button" onclick="guestGo()" style="width:100%;padding:11px;background:transparent;border:1px solid #1f2d45;border-radius:9px;color:#94a3b8;font-size:12px;cursor:pointer;box-sizing:border-box;">Continue without token (analysis only)</button>
+      <button id="loginBtn" type="button" onclick="loginGo()" style="width:100%;padding:12px;background:#1f2d45;border:1px solid #263550;border-radius:9px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;box-sizing:border-box;">CONNECT WITH TOKEN</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="flex:1;height:1px;background:#1f2d45;"></div><span style="color:#475569;font-size:11px;">or</span><div style="flex:1;height:1px;background:#1f2d45;"></div></div>
+      <button type="button" onclick="guestGo()" style="width:100%;padding:11px;background:transparent;border:1px solid #1f2d45;border-radius:9px;color:#475569;font-size:12px;cursor:pointer;box-sizing:border-box;">Continue without token (analysis only)</button>
     </div>
-    <div style="text-align:center;margin-top:14px;font-size:10px;color:#475569;">Not financial advice &middot; Use demo account first</div>
+    <div style="text-align:center;margin-top:14px;font-size:10px;color:#334155;">Not financial advice &middot; Use demo account first &middot; Trade at your own risk</div>
   </div>
 </div>
 <div id="appShell" style="display:none;flex-direction:column;height:100dvh;overflow:hidden;position:fixed;inset:0;">
@@ -619,7 +614,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 <div id="TT" style="display:none;">0</div>
 <div id="SEV" style="display:none;">&mdash;</div>
 <div id="SB" style="display:none;">&mdash;</div>
-<script>
+<script>var DERIV_APP_ID = '33BCmHreHxUdPQK1762rJ';
+
 const IDX=[
   {s:'R_10',n:'V10',sub:'Volatility 10',v:10,dp:3,tickScale:1,conThresh:0.015,minTicks:60},
   {s:'R_25',n:'V25',sub:'Volatility 25',v:25,dp:3,tickScale:1,conThresh:0.015,minTicks:60},
@@ -1693,6 +1689,96 @@ function updateDC(sym){
   }
   if(card){const lbl=document.getElementById('digitBufLabel');if(lbl)lbl.textContent=s.digitBuf||100;card.classList.toggle('best-market',AI.activeSym===sym&&AI.inTrade);}
 }
+
+// ============================================================
+// OAUTH 2.0 - Deriv Login
+// ============================================================
+function doOAuth() {
+  var btn = document.getElementById('oauthBtn');
+  if (btn) { btn.textContent = 'Redirecting to Deriv...'; btn.disabled = true; btn.style.opacity = '0.7'; }
+  setTimeout(function() {
+    window.location.href = 'https://oauth.deriv.com/oauth2/authorize?app_id=' + DERIV_APP_ID + '&l=EN&brand=deriv';
+  }, 300);
+}
+
+function checkOAuthReturn() {
+  var search = window.location.search;
+  if (!search || search.indexOf('token1=') < 0) return false;
+  var params = new URLSearchParams(search);
+  var token1 = params.get('token1');
+  if (!token1) return false;
+
+  // Clean URL immediately
+  window.history.replaceState({}, document.title, window.location.pathname);
+
+  // Show loading screen
+  var pg = document.getElementById('pgLogin');
+  if (pg) {
+    pg.innerHTML = '<div style="text-align:center;padding:40px;color:#f1f5f9;">'
+      + '<div style="font-size:26px;font-weight:700;margin-bottom:16px;">Deriv<span style="color:#38bdf8;">AI</span></div>'
+      + '<div style="color:#38bdf8;font-size:14px;margin-bottom:8px;">Authorizing your account...</div>'
+      + '<div style="color:#475569;font-size:11px;">Please wait</div>'
+      + '</div>';
+  }
+
+  userToken = token1;
+  var sock;
+  try {
+    sock = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=' + DERIV_APP_ID);
+  } catch(e) {
+    oauthFail('Cannot connect: ' + e.message);
+    return true;
+  }
+
+  var done = false;
+  var timer = setTimeout(function() {
+    if (done) return;
+    done = true;
+    try { sock.close(); } catch(x) {}
+    oauthFail('Connection timed out. Please try again.');
+  }, 15000);
+
+  sock.onopen = function() {
+    sock.send(JSON.stringify({ authorize: token1 }));
+  };
+
+  sock.onmessage = function(e) {
+    var d;
+    try { d = JSON.parse(e.data); } catch(x) { return; }
+    if (d.msg_type !== 'authorize') return;
+    clearTimeout(timer); done = true;
+    try { sock.close(); } catch(x) {}
+    if (d.error) {
+      oauthFail('Auth error: ' + (d.error.message || 'Please try again.'));
+      return;
+    }
+    launchDash(d.authorize);
+  };
+
+  sock.onerror = function() {
+    if (done) return;
+    clearTimeout(timer); done = true;
+    try { sock.close(); } catch(x) {}
+    oauthFail('Connection error. Check internet and try again.');
+  };
+
+  sock.onclose = function(ev) {
+    if (done) return;
+    clearTimeout(timer); done = true;
+    oauthFail('Connection closed (code:' + ev.code + '). Try again.');
+  };
+
+  return true;
+}
+
+function oauthFail(msg) {
+  userToken = null;
+  // Reload to show login page again with error
+  sessionStorage.setItem('oauth_error', msg);
+  window.location.reload();
+}
+// ============================================================
+
 function loginGo() {
   var token = document.getElementById('tokenInput').value.trim();
   var errEl = document.getElementById('LE');
@@ -1796,6 +1882,19 @@ function guestGo() {
   }
 }
 
+
+// Run OAuth check on page load
+(function() {
+  // Show any OAuth error from previous attempt
+  var oauthErr = sessionStorage.getItem('oauth_error');
+  if (oauthErr) {
+    sessionStorage.removeItem('oauth_error');
+    var el = document.getElementById('LE');
+    if (el) { el.textContent = oauthErr; el.style.display = 'block'; }
+  }
+  // Check if returning from OAuth
+  checkOAuthReturn();
+})();
 </script>
 </body>
 </html>
