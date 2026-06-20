@@ -1641,7 +1641,7 @@ function onTick(tk){
   if(typeof BB!=='undefined'&&BB.running&&AI.mode==='boyboy'&&!AI.inTrade&&!AI.pendingResult)bbTick(tk.symbol);
   if(AI.mode==='power'&&total%5===0)updatePowerSignalDisplay();
 }
-(function(){try{const saved=sessionStorage.getItem('ds_token');const expiry=parseInt(sessionStorage.getItem('ds_expiry')||'0');if(saved&&Date.now()<expiry){document.getElementById('tokenInput').value=saved;userToken=saved;verifyToken(saved);}}catch(e){}})();
+// Session check moved to runOnLoad()
 let _sumTick=0;
 function updateSum(){
   _sumTick++;if(_sumTick%15!==0)return;
@@ -1749,10 +1749,19 @@ function checkOAuthReturn() {
     clearTimeout(timer); done = true;
     try { sock.close(); } catch(x) {}
     if (d.error) {
-      oauthFail('Auth error: ' + (d.error.message || 'Please try again.'));
+      oauthFail('Login error: ' + (d.error.message || 'Please try again.'));
       return;
     }
-    launchDash(d.authorize);
+    // Successfully authorized - launch the app
+    try {
+      launchDash(d.authorize);
+    } catch(err) {
+      // launchDash crashed - try manual approach
+      try {
+        document.getElementById('pgLogin').style.display = 'none';
+        document.getElementById('appShell').style.display = 'flex';
+      } catch(e2) {}
+    }
   };
 
   sock.onerror = function() {
@@ -1773,9 +1782,13 @@ function checkOAuthReturn() {
 
 function oauthFail(msg) {
   userToken = null;
-  // Reload to show login page again with error
-  sessionStorage.setItem('oauth_error', msg);
-  window.location.reload();
+  // Restore login page
+  var pg = document.getElementById('pgLogin');
+  if (pg) {
+    // Reload page to restore login UI
+    sessionStorage.setItem('oauth_error', msg);
+    window.location.href = window.location.pathname;
+  }
 }
 // ============================================================
 
@@ -1883,18 +1896,54 @@ function guestGo() {
 }
 
 
-// Run OAuth check on page load
-(function() {
-  // Show any OAuth error from previous attempt
+// Run OAuth check on page load - wait for DOM
+function runOnLoad() {
+  // Check if returning from OAuth redirect
+  var search = window.location.search;
+  if (search && search.indexOf('token1=') >= 0) {
+    // We are returning from Deriv OAuth
+    // Show loading screen immediately
+    var pg = document.getElementById('pgLogin');
+    if (pg) {
+      pg.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0f1e;">'
+        + '<div style="font-size:26px;font-weight:700;color:#f1f5f9;margin-bottom:16px;">Deriv<span style=\'color:#38bdf8;\'>AI</span></div>'
+        + '<div style="color:#38bdf8;font-size:14px;margin-bottom:8px;">Logging you in...</div>'
+        + '<div style="width:40px;height:40px;border:3px solid #1f2d45;border-top-color:#38bdf8;border-radius:50%;animation:spin 1s linear infinite;"></div>'
+        + '</div>';
+    }
+    // Add spinner CSS
+    var style = document.createElement('style');
+    style.textContent = '@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}';
+    document.head.appendChild(style);
+    // Process the OAuth return
+    checkOAuthReturn();
+    return;
+  }
+  // Normal page load - show any previous OAuth error
   var oauthErr = sessionStorage.getItem('oauth_error');
   if (oauthErr) {
     sessionStorage.removeItem('oauth_error');
     var el = document.getElementById('LE');
     if (el) { el.textContent = oauthErr; el.style.display = 'block'; }
   }
-  // Check if returning from OAuth
-  checkOAuthReturn();
-})();
+  // Check for saved session token
+  try {
+    var saved = sessionStorage.getItem('ds_token');
+    var expiry = parseInt(sessionStorage.getItem('ds_expiry') || '0');
+    if (saved && Date.now() < expiry) {
+      document.getElementById('tokenInput').value = saved;
+      userToken = saved;
+      loginGo();
+    }
+  } catch(e) {}
+}
+
+// Run when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', runOnLoad);
+} else {
+  runOnLoad();
+}
 </script>
 </body>
 </html>
