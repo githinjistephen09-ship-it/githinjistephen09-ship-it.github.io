@@ -1697,7 +1697,7 @@ function doOAuth() {
   var btn = document.getElementById('oauthBtn');
   if (btn) { btn.textContent = 'Redirecting to Deriv...'; btn.disabled = true; btn.style.opacity = '0.7'; }
   setTimeout(function() {
-    window.location.href = 'https://oauth.deriv.com/oauth2/authorize?app_id=' + DERIV_APP_ID + '&l=EN&brand=deriv';
+    window.location.href = 'https://oauth.deriv.com/oauth2/authorize?app_id=' + DERIV_APP_ID + '&l=EN&brand=deriv&redirect_uri=' + encodeURIComponent('https://githinjistephen09-ship-it.github.io/');
   }, 300);
 }
 
