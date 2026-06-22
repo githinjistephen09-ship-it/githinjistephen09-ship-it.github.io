@@ -1696,14 +1696,28 @@ function updateDC(sym){
 function doOAuth() {
   var btn = document.getElementById('oauthBtn');
   if (btn) { btn.textContent = 'Redirecting to Deriv...'; btn.disabled = true; btn.style.opacity = '0.7'; }
+  var redirectUri = 'https://githinjistephen09-ship-it.github.io/';
+  var url = 'https://oauth.deriv.com/oauth2/authorize'
+    + '?app_id=' + DERIV_APP_ID
+    + '&l=EN'
+    + '&brand=deriv'
+    + '&redirect_uri=' + encodeURIComponent(redirectUri);
   setTimeout(function() {
-    window.location.href = 'https://oauth.deriv.com/oauth2/authorize?app_id=' + DERIV_APP_ID + '&l=EN&brand=deriv&redirect_uri=' + encodeURIComponent('https://githinjistephen09-ship-it.github.io/');
+    window.location.href = url;
   }, 300);
 }
 
 function checkOAuthReturn() {
-  var search = window.location.search;
-  if (!search || search.indexOf('token1=') < 0) return false;
+  // Check both URL search params and hash
+  var search = window.location.search || '';
+  var hash = window.location.hash || '';
+  var fullUrl = search + hash;
+  
+  // Deriv can redirect with token in different formats
+  if (fullUrl.indexOf('token1=') < 0 && search.indexOf('token1=') < 0) return false;
+  
+  // Use search params
+  var checkStr = search.indexOf('token1=') >= 0 ? search : hash.replace('#','?');
   var params = new URLSearchParams(search);
   var token1 = params.get('token1');
   if (!token1) return false;
