@@ -614,7 +614,29 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
 <div id="TT" style="display:none;">0</div>
 <div id="SEV" style="display:none;">&mdash;</div>
 <div id="SB" style="display:none;">&mdash;</div>
-<script>var DERIV_APP_ID = '33BCmHreHxUdPQK1762rJ';
+<script>
+// ============================================================
+// OAUTH TOKEN EXTRACTOR - runs first before anything else
+// ============================================================
+(function() {
+  var search = window.location.search;
+  if (search && search.indexOf('token1=') >= 0) {
+    try {
+      var params = new URLSearchParams(search);
+      var t1 = params.get('token1');
+      var a1 = params.get('acct1');
+      if (t1) {
+        // Save token immediately before page does anything else
+        sessionStorage.setItem('oauth_token', t1);
+        sessionStorage.setItem('oauth_acct', a1 || '');
+        // Clean the URL so it looks normal
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch(e) {}
+  }
+})();
+// ============================================================
+var DERIV_APP_ID = '33BCmHreHxUdPQK1762rJ';
 
 const IDX=[
   {s:'R_10',n:'V10',sub:'Volatility 10',v:10,dp:3,tickScale:1,conThresh:0.015,minTicks:60},
@@ -1707,26 +1729,24 @@ function doOAuth() {
 }
 
 function checkOAuthReturn() {
-  // Check both URL search params and hash
-  var search = window.location.search || '';
-  var hash = window.location.hash || '';
-  var fullUrl = search + hash;
-  
-  // Deriv can redirect with token in different formats
-  if (fullUrl.indexOf('token1=') < 0 && search.indexOf('token1=') < 0) return false;
-  
-  // Use search params
-  var checkStr = search.indexOf('token1=') >= 0 ? search : hash.replace('#','?');
-  var params = new URLSearchParams(search);
-  var token1 = params.get('token1');
+  // Get token - either from sessionStorage (saved by early extractor) or URL
+  var token1 = sessionStorage.getItem('oauth_token') || '';
+  sessionStorage.removeItem('oauth_token');
+  sessionStorage.removeItem('oauth_acct');
+
+  if (!token1) {
+    // Try URL params directly
+    try {
+      var params = new URLSearchParams(window.location.search);
+      token1 = params.get('token1') || '';
+      if (token1) window.history.replaceState({}, document.title, window.location.pathname);
+    } catch(e) {}
+  }
+
   if (!token1) return false;
 
-  // Clean URL immediately
-  window.history.replaceState({}, document.title, window.location.pathname);
-
-  // Overlay already shown by runOnLoad - nothing to do here
-
   userToken = token1;
+
   var sock;
   try {
     sock = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=' + DERIV_APP_ID);
@@ -1754,14 +1774,16 @@ function checkOAuthReturn() {
     clearTimeout(timer); done = true;
     try { sock.close(); } catch(x) {}
     if (d.error) {
-      oauthFail('Login error: ' + (d.error.message || 'Please try again.'));
+      oauthFail('Auth error: ' + (d.error.message || 'Please try again.'));
       return;
     }
-    // Successfully authorized - launch the app
+    // SUCCESS - remove overlay and launch app
+    var overlay = document.getElementById('oauthOverlay');
+    if (overlay) overlay.remove();
     try {
       launchDash(d.authorize);
     } catch(err) {
-      // launchDash crashed - try manual approach
+      // Fallback if launchDash crashes
       try {
         document.getElementById('pgLogin').style.display = 'none';
         document.getElementById('appShell').style.display = 'flex';
@@ -1773,7 +1795,7 @@ function checkOAuthReturn() {
     if (done) return;
     clearTimeout(timer); done = true;
     try { sock.close(); } catch(x) {}
-    oauthFail('Connection error. Check internet and try again.');
+    oauthFail('Connection error. Try again.');
   };
 
   sock.onclose = function(ev) {
@@ -1784,7 +1806,6 @@ function checkOAuthReturn() {
 
   return true;
 }
-
 function oauthFail(msg) {
   userToken = null;
   // Restore login page
@@ -1903,9 +1924,12 @@ function guestGo() {
 
 // Run OAuth check on page load - wait for DOM
 function runOnLoad() {
-  // Check if returning from OAuth redirect
+  // Check if returning from OAuth redirect (URL params or saved in sessionStorage)
+  var savedOAuthToken = sessionStorage.getItem('oauth_token');
   var search = window.location.search;
-  if (search && search.indexOf('token1=') >= 0) {
+  if (savedOAuthToken || (search && search.indexOf('token1=') >= 0)) {
+    sessionStorage.removeItem('oauth_token');
+    sessionStorage.removeItem('oauth_acct');
     // Show overlay spinner WITHOUT destroying the DOM
     var overlay = document.createElement('div');
     overlay.id = 'oauthOverlay';
