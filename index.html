@@ -1928,8 +1928,7 @@ function runOnLoad() {
   var savedOAuthToken = sessionStorage.getItem('oauth_token');
   var search = window.location.search;
   if (savedOAuthToken || (search && search.indexOf('token1=') >= 0)) {
-    sessionStorage.removeItem('oauth_token');
-    sessionStorage.removeItem('oauth_acct');
+    // NOTE: Do NOT remove from sessionStorage here - checkOAuthReturn will do it
     // Show overlay spinner WITHOUT destroying the DOM
     var overlay = document.createElement('div');
     overlay.id = 'oauthOverlay';
