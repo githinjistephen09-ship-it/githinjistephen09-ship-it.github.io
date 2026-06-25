@@ -1646,11 +1646,30 @@ function hideErr(){const e=document.getElementById('ERR');if(e)e.style.display='
 let _keepaliveTimer=null,_pingTime=0,_lastMsgAt=0,_connectedAt=0,_reconnectCount=0,_watchdogTimer=null;
 function startConn(){
   try{ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=' + DERIV_APP_ID);}catch(e){showErr(e.message);sched();return;}
-  ws.onopen=()=>{updConn(true);_connectedAt=Date.now();if(userToken&&!isGuest){ws.send(JSON.stringify({authorize:userToken}));}else{subAll();if(!isGuest&&userToken)ws.send(JSON.stringify({balance:1,subscribe:1}));}  _startKeepalive();};
+  ws.onopen=()=>{
+    updConn(true);_connectedAt=Date.now();
+    if(window._derivPatMode){
+      // PAT mode - OTP URL handles auth, just subscribe
+      subAll();
+      ws.send(JSON.stringify({balance:1,subscribe:1}));
+    } else if(userToken&&!isGuest){
+      ws.send(JSON.stringify({authorize:userToken}));
+    } else {
+      subAll();
+    }
+    _startKeepalive();
+  };
   ws.onmessage=e=>{_lastMsgAt=Date.now();try{const m=JSON.parse(e.data);if(m.error&&m.error.code!=='MarketIsClosed'&&m.error.code!=='AuthorizationRequired')showErr(m.error.message||m.error.code);if(m.msg_type==='website_status'){return;}if(m.msg_type==='authorize'&&!m.error){subAll();ws.send(JSON.stringify({balance:1,subscribe:1}));}if(m.msg_type==='tick'){try{onTick(m.tick);}catch(e){console.warn('tick err',e);}}if(m.msg_type==='balance')updBal(m.balance);if(m.msg_type==='buy')onBuy(m);if(m.msg_type==='proposal_open_contract'){onContract(m.proposal_open_contract);return;}if(m.msg_type==='ping'&&_pingTime>0){const rtt=Date.now()-_pingTime;_pingTime=0;_updateNetStrength(rtt);}}catch(x){}};
   ws.onclose=()=>{updConn(false);_stopKeepalive();sched();};ws.onerror=()=>{updConn(false);_stopKeepalive();try{ws.close();}catch(ex){}};
 }
-function subAll(){IDX.forEach(i=>ws&&ws.readyState===1&&ws.send(JSON.stringify({ticks:i.s,subscribe:1})));}
+function subAll(){
+  if(window._derivPatMode){
+    // PAT mode - already authenticated via OTP URL, just subscribe to ticks
+    IDX.forEach(i=>ws&&ws.readyState===1&&ws.send(JSON.stringify({ticks:i.s,subscribe:1})));
+  } else {
+    IDX.forEach(i=>ws&&ws.readyState===1&&ws.send(JSON.stringify({ticks:i.s,subscribe:1})));
+  }
+}
 function sched(){clearTimeout(rtimer);const delay=Math.min(16000,2000*Math.pow(2,Math.min(_reconnectCount,3)));_reconnectCount++;rtimer=setTimeout(()=>{_reconnectCount=0;startConn();},delay);}
 function updBal(b){if(!b)return;const bal=parseFloat(b.balance);document.getElementById('balVal').textContent=bal.toFixed(2);_runningBalance=bal;}
 function _startKeepalive(){
@@ -1755,41 +1774,164 @@ function loginGo() {
   var token = document.getElementById('tokenInput').value.trim();
   var errEl = document.getElementById('LE');
   var btn = document.getElementById('loginBtn');
-  if (!token) {
-    errEl.textContent = 'Please paste your API token first';
+
+  function showErr(msg) {
+    errEl.textContent = msg;
     errEl.style.display = 'block';
-    return;
+    btn.textContent = 'CONNECT TO DERIV';
+    btn.disabled = false;
+    btn.style.opacity = '1';
   }
-  if (token.length < 10) {
-    errEl.textContent = 'Token too short - make sure you copied it fully';
-    errEl.style.display = 'block';
-    return;
-  }
+
+  if (!token) { showErr('Please paste your API token first'); return; }
+  if (token.length < 10) { showErr('Token too short - check you copied it fully'); return; }
+
   errEl.style.display = 'none';
-  btn.textContent = 'CONNECTING...';
   btn.disabled = true;
-  btn.style.opacity = '0.7';
+
+  // Detect token type
+  if (token.startsWith('pat_')) {
+    // NEW API: PAT token - use REST + OTP flow
+    btn.textContent = 'CONNECTING (NEW API)...';
+    loginWithPAT(token, showErr);
+  } else {
+    // LEGACY: a1- token - use direct WebSocket authorize
+    btn.textContent = 'CONNECTING...';
+    loginWithLegacy(token, showErr);
+  }
+}
+
+function loginWithPAT(token, showErr) {
+  var btn = document.getElementById('loginBtn');
+  var APP_ID = DERIV_APP_ID;
+  btn.textContent = 'STEP 1: Getting accounts...';
+
+  fetch('https://api.derivws.com/trading/v1/options/accounts', {
+    method: 'GET',
+    headers: {
+      'Deriv-App-ID': APP_ID,
+      'Authorization': 'Bearer ' + token
+    }
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('Server error: ' + r.status);
+    return r.json();
+  })
+  .then(function(resp) {
+    console.log('Accounts response:', JSON.stringify(resp));
+    // Extract account ID from response
+    var accts = resp.data || resp.accounts || [];
+    if (Array.isArray(accts) && accts.length > 0) {
+      return accts[0].account_id || accts[0].id || accts[0].loginid;
+    }
+    // No accounts yet - create demo account
+    btn.textContent = 'STEP 1b: Creating demo account...';
+    return fetch('https://api.derivws.com/trading/v1/options/accounts', {
+      method: 'POST',
+      headers: {
+        'Deriv-App-ID': APP_ID,
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({currency:'USD', group:'row', account_type:'demo'})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      console.log('Create account response:', JSON.stringify(d));
+      var id = (d.data && (d.data.account_id || d.data.id)) || d.account_id || d.id;
+      if (!id) throw new Error('Could not get account ID. Response: ' + JSON.stringify(d));
+      return id;
+    });
+  })
+  .then(function(accountId) {
+    btn.textContent = 'STEP 2: Getting WebSocket URL...';
+    console.log('Account ID:', accountId);
+    return fetch('https://api.derivws.com/trading/v1/options/accounts/' + accountId + '/otp', {
+      method: 'POST',
+      headers: {
+        'Deriv-App-ID': APP_ID,
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      console.log('OTP response:', JSON.stringify(d));
+      var url = (d.data && d.data.url) || d.url;
+      if (!url) throw new Error('No WebSocket URL. Response: ' + JSON.stringify(d));
+      return {url: url, accountId: accountId};
+    });
+  })
+  .then(function(result) {
+    btn.textContent = 'STEP 3: Connecting...';
+    var socket = new WebSocket(result.url);
+    var done = false;
+    var timer = setTimeout(function() {
+      if (done) return; done = true;
+      try { socket.close(); } catch(x) {}
+      showErr('Connection timed out. Try again.');
+    }, 15000);
+    socket.onopen = function() {
+      btn.textContent = 'CONNECTED - Loading...';
+      socket.send(JSON.stringify({balance:1}));
+    };
+    socket.onmessage = function(e) {
+      var d; try { d = JSON.parse(e.data); } catch(x) { return; }
+      console.log('WS message:', d.msg_type);
+      if (d.msg_type !== 'balance') return;
+      clearTimeout(timer); done = true;
+      userToken = token;
+      try { 
+        sessionStorage.setItem('ds_token', token); 
+        sessionStorage.setItem('ds_expiry', String(Date.now() + 86400000));
+        sessionStorage.setItem('ds_ws_url', result.url);
+        sessionStorage.setItem('ds_acct_id', result.accountId);
+      } catch(x) {}
+      window._derivWsUrl = result.url;
+      window._derivPatMode = true;
+      window._derivAuthSocket = socket;
+      var bal = d.balance || {};
+      var auth = {
+        fullname: 'Deriv User',
+        loginid: bal.loginid || result.accountId,
+        balance: bal.balance || 0,
+        currency: bal.currency || 'USD',
+        is_virtual: (bal.account_type === 'virtual') ? 1 : 0,
+        email: ''
+      };
+      launchDash(auth);
+    };
+    socket.onerror = function() {
+      if (done) return; done = true;
+      try { socket.close(); } catch(x) {}
+      showErr('WebSocket error. Try again.');
+    };
+    socket.onclose = function(ev) {
+      if (done) return; done = true;
+      showErr('Connection closed (code:' + ev.code + '). Try again.');
+    };
+  })
+  .catch(function(err) {
+    console.error('PAT login error:', err);
+    showErr('Login failed: ' + err.message + '. Check your token and try again.');
+  });
+}
+
+
+function loginWithLegacy(token, showErr) {
+  var btn = document.getElementById('loginBtn');
   var socket;
   try {
     socket = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=' + DERIV_APP_ID);
   } catch(e) {
-    errEl.textContent = 'Cannot connect: ' + e.message;
-    errEl.style.display = 'block';
-    btn.textContent = 'CONNECT TO DERIV';
-    btn.disabled = false;
-    btn.style.opacity = '1';
+    showErr('Cannot connect: ' + e.message);
     return;
   }
   var done = false;
   var timer = setTimeout(function() {
-    if (done) return;
-    done = true;
+    if (done) return; done = true;
     try { socket.close(); } catch(x) {}
-    errEl.textContent = 'Timed out. Check internet and try again.';
-    errEl.style.display = 'block';
-    btn.textContent = 'CONNECT TO DERIV';
-    btn.disabled = false;
-    btn.style.opacity = '1';
+    showErr('Timed out. Try again.');
   }, 15000);
   socket.onopen = function() {
     btn.textContent = 'AUTHORIZING...';
@@ -1800,37 +1942,27 @@ function loginGo() {
     if (d.msg_type !== 'authorize') return;
     clearTimeout(timer); done = true;
     try { socket.close(); } catch(x) {}
-    if (d.error) {
-      errEl.textContent = 'Error: ' + (d.error.message || 'Invalid token');
-      errEl.style.display = 'block';
-      btn.textContent = 'CONNECT TO DERIV';
-      btn.disabled = false;
-      btn.style.opacity = '1';
-      return;
-    }
+    if (d.error) { showErr('Error: ' + (d.error.message || 'Invalid token')); return; }
     userToken = token;
     try { sessionStorage.setItem('ds_token', token); sessionStorage.setItem('ds_expiry', String(Date.now() + 86400000)); } catch(x) {}
     launchDash(d.authorize);
   };
   socket.onerror = function() {
-    if (done) return;
-    clearTimeout(timer); done = true;
+    if (done) return; done = true;
     try { socket.close(); } catch(x) {}
-    errEl.textContent = 'Connection error. Check internet and try again.';
-    errEl.style.display = 'block';
-    btn.textContent = 'CONNECT TO DERIV';
-    btn.disabled = false;
-    btn.style.opacity = '1';
+    showErr('Connection error. Try again.');
   };
   socket.onclose = function(ev) {
-    if (done) return;
-    clearTimeout(timer); done = true;
-    errEl.textContent = 'Connection closed (code:' + ev.code + '). Try again.';
-    errEl.style.display = 'block';
-    btn.textContent = 'CONNECT TO DERIV';
-    btn.disabled = false;
-    btn.style.opacity = '1';
+    if (done) return; done = true;
+    showErr('Connection closed (code:' + ev.code + '). Try again.');
   };
+}
+
+function launchDashWithSocket(auth, socket, wsUrl) {
+  // Store the WS URL for reconnection
+  window._derivWsUrl = wsUrl;
+  window._derivPatMode = true;
+  launchDash(auth);
 }
 
 function guestGo() {
