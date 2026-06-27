@@ -268,31 +268,32 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
       <div style="font-size:10px;color:#475569;letter-spacing:2px;margin-top:5px;">PIONEER &middot; POWER &middot; BOY BOY</div>
     </div>
     <div style="background:#151d2e;border:1px solid #1f2d45;border-radius:16px;padding:24px;">
-      <div style="font-size:9px;font-weight:600;color:#475569;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">HOW TO GET YOUR API TOKEN</div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+      <div style="font-size:9px;font-weight:600;color:#475569;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">HOW TO LOGIN</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.3);color:#38bdf8;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
-          <div style="font-size:12px;color:#94a3b8;line-height:1.5;">Go to <strong style="color:#38bdf8;">app.deriv.com</strong> &rarr; Account Settings</div>
+          <div style="font-size:12px;color:#94a3b8;line-height:1.5;">Go to <strong style="color:#38bdf8;">developers.deriv.com</strong> &rarr; API Tokens</div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.3);color:#38bdf8;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
-          <div style="font-size:12px;color:#94a3b8;line-height:1.5;">Click <strong style="color:#f1f5f9;">API Token</strong> in the left menu</div>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="width:22px;height:22px;border-radius:50%;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.3);color:#38bdf8;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
           <div style="font-size:12px;color:#94a3b8;line-height:1.5;">Create token with <strong style="color:#f1f5f9;">Trade + Account Management</strong> scope</div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="width:22px;height:22px;border-radius:50%;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.3);color:#38bdf8;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+          <div style="font-size:12px;color:#94a3b8;line-height:1.5;">Get your <strong style="color:#f1f5f9;">Account ID</strong> from Registered Apps (e.g. DOT12345678)</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(56,189,248,.15);border:1px solid rgba(56,189,248,.3);color:#38bdf8;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
-          <div style="font-size:12px;color:#94a3b8;line-height:1.5;">Copy and paste below</div>
+          <div style="font-size:12px;color:#94a3b8;line-height:1.5;">Paste both below</div>
         </div>
       </div>
       <div id="LE" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:#ef4444;font-size:12px;"></div>
       <div style="position:relative;margin-bottom:8px;">
-        <input id="tokenInput" type="password" placeholder="Paste your API token here..." style="width:100%;padding:13px 44px 13px 14px;background:#111827;border:1px solid #1f2d45;border-radius:10px;color:#f1f5f9;font-size:13px;outline:none;-webkit-appearance:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')loginGo();"/>
+        <input id="tokenInput" type="password" placeholder="Paste your PAT token (pat_xxx...)" style="width:100%;padding:13px 44px 13px 14px;background:#111827;border:1px solid #1f2d45;border-radius:10px;color:#f1f5f9;font-size:13px;outline:none;-webkit-appearance:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')loginGo();"/>
         <button type="button" onclick="var i=document.getElementById('tokenInput');i.type=i.type==='password'?'text':'password';" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer;font-size:16px;">&#128065;</button>
       </div>
-      <div style="font-size:10px;color:#475569;text-align:center;margin-bottom:18px;">Token sent only to Deriv WebSocket &middot; Never stored on any server</div>
+      <input id="accountIdInput" type="text" placeholder="Account ID (e.g. DOT90004580)" style="width:100%;padding:12px 14px;background:#111827;border:1px solid #1f2d45;border-radius:10px;color:#f1f5f9;font-size:13px;outline:none;-webkit-appearance:none;box-sizing:border-box;margin-bottom:8px;" onkeydown="if(event.key==='Enter')loginGo();"/>
+      <div style="font-size:10px;color:#475569;text-align:center;margin-bottom:18px;">Token sent only to Deriv API &middot; Never stored on any server</div>
       <button id="loginBtn" type="button" onclick="loginGo()" style="width:100%;padding:14px;background:#ef4444;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;box-sizing:border-box;box-shadow:0 4px 18px rgba(239,68,68,.35);">&#128308; CONNECT TO DERIV</button>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><div style="flex:1;height:1px;background:#1f2d45;"></div><span style="color:#475569;font-size:11px;">or</span><div style="flex:1;height:1px;background:#1f2d45;"></div></div>
       <button type="button" onclick="guestGo()" style="width:100%;padding:12px;background:transparent;border:1px solid #1f2d45;border-radius:10px;color:#64748b;font-size:12px;cursor:pointer;box-sizing:border-box;">Continue without token (analysis only)</button>
@@ -624,14 +625,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
   </div>
   <nav class="bnav">
     <button class="bntab" id="bnAnalysis" onclick="navTo('analysis')"><span class="bni">&#128202;</span>ANALYSIS</button>
-    <button class="bntab active" id="bnAI" onclick="navTo('ai')"><span class="bni">&#129302;</span>AI</button>
-    <button class="bntab" id="bnAccount" onclick="navTo('account')"><span class="bni">&#128100;</span>ACCOUNT</button>
-  </nav>
-</div>
-<div id="TT" style="display:none;">0</div>
-<div id="SEV" style="display:none;">&mdash;</div>
-<div id="SB" style="display:none;">&mdash;</div>
-<script>
+    <button class="bntab active" id="bnAI" 
 
 // ============================================================
 (function() {
@@ -651,6 +645,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
     } catch(e) {}
   }
 })();
+<script>
 // ============================================================
 var DERIV_APP_ID = '36544'; // numeric app_id for WebSocket connection
 
@@ -1804,67 +1799,34 @@ function loginGo() {
 function loginWithPAT(token, showErr) {
   var btn = document.getElementById('loginBtn');
   var APP_ID = DERIV_APP_ID;
-  btn.textContent = 'STEP 1: Getting accounts...';
+  var accountIdEl = document.getElementById('accountIdInput');
+  var accountId = accountIdEl ? accountIdEl.value.trim() : '';
 
-  fetch('https://api.derivws.com/trading/v1/options/accounts', {
-    method: 'GET',
+  if (!accountId) {
+    showErr('Please enter your Account ID (e.g. DOT90004580). Find it at developers.deriv.com');
+    return;
+  }
+
+  btn.textContent = 'GETTING WEBSOCKET URL...';
+
+  // Skip GET accounts - go straight to OTP with provided account ID
+  fetch('https://api.derivws.com/trading/v1/options/accounts/' + accountId + '/otp', {
+    method: 'POST',
     headers: {
       'Deriv-App-ID': APP_ID,
-      'Authorization': 'Bearer ' + token
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json'
     }
   })
   .then(function(r) {
-    if (!r.ok) throw new Error('Server error: ' + r.status);
+    if (!r.ok) return r.json().then(function(e) { throw new Error((e.errors && e.errors[0] && e.errors[0].message) || 'Server error ' + r.status); });
     return r.json();
   })
   .then(function(resp) {
-    console.log('Accounts response:', JSON.stringify(resp));
-    // Extract account ID from response
-    var accts = resp.data || resp.accounts || [];
-    if (Array.isArray(accts) && accts.length > 0) {
-      return accts[0].account_id || accts[0].id || accts[0].loginid;
-    }
-    // No accounts yet - create demo account
-    btn.textContent = 'STEP 1b: Creating demo account...';
-    return fetch('https://api.derivws.com/trading/v1/options/accounts', {
-      method: 'POST',
-      headers: {
-        'Deriv-App-ID': APP_ID,
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({currency:'USD', group:'row', account_type:'demo'})
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      console.log('Create account response:', JSON.stringify(d));
-      var id = (d.data && (d.data.account_id || d.data.id)) || d.account_id || d.id;
-      if (!id) throw new Error('Could not get account ID. Response: ' + JSON.stringify(d));
-      return id;
-    });
-  })
-  .then(function(accountId) {
-    btn.textContent = 'STEP 2: Getting WebSocket URL...';
-    console.log('Account ID:', accountId);
-    return fetch('https://api.derivws.com/trading/v1/options/accounts/' + accountId + '/otp', {
-      method: 'POST',
-      headers: {
-        'Deriv-App-ID': APP_ID,
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      console.log('OTP response:', JSON.stringify(d));
-      var url = (d.data && d.data.url) || d.url;
-      if (!url) throw new Error('No WebSocket URL. Response: ' + JSON.stringify(d));
-      return {url: url, accountId: accountId};
-    });
-  })
-  .then(function(result) {
-    btn.textContent = 'STEP 3: Connecting...';
-    var socket = new WebSocket(result.url);
+    var wsUrl = (resp.data && resp.data.url) || resp.url;
+    if (!wsUrl) throw new Error('No WebSocket URL returned. Check your Account ID.');
+    btn.textContent = 'CONNECTING...';
+    var socket = new WebSocket(wsUrl);
     var done = false;
     var timer = setTimeout(function() {
       if (done) return; done = true;
@@ -1872,28 +1834,26 @@ function loginWithPAT(token, showErr) {
       showErr('Connection timed out. Try again.');
     }, 15000);
     socket.onopen = function() {
-      btn.textContent = 'CONNECTED - Loading...';
-      socket.send(JSON.stringify({balance:1}));
+      btn.textContent = 'LOADING ACCOUNT...';
+      socket.send(JSON.stringify({balance: 1}));
     };
     socket.onmessage = function(e) {
       var d; try { d = JSON.parse(e.data); } catch(x) { return; }
-      console.log('WS message:', d.msg_type);
       if (d.msg_type !== 'balance') return;
       clearTimeout(timer); done = true;
       userToken = token;
-      try { 
-        sessionStorage.setItem('ds_token', token); 
+      try {
+        sessionStorage.setItem('ds_token', token);
         sessionStorage.setItem('ds_expiry', String(Date.now() + 86400000));
-        sessionStorage.setItem('ds_ws_url', result.url);
-        sessionStorage.setItem('ds_acct_id', result.accountId);
+        sessionStorage.setItem('ds_ws_url', wsUrl);
+        sessionStorage.setItem('ds_acct_id', accountId);
       } catch(x) {}
-      window._derivWsUrl = result.url;
+      window._derivWsUrl = wsUrl;
       window._derivPatMode = true;
-      window._derivAuthSocket = socket;
       var bal = d.balance || {};
       var auth = {
         fullname: 'Deriv User',
-        loginid: bal.loginid || result.accountId,
+        loginid: bal.loginid || accountId,
         balance: bal.balance || 0,
         currency: bal.currency || 'USD',
         is_virtual: (bal.account_type === 'virtual') ? 1 : 0,
@@ -1904,7 +1864,7 @@ function loginWithPAT(token, showErr) {
     socket.onerror = function() {
       if (done) return; done = true;
       try { socket.close(); } catch(x) {}
-      showErr('WebSocket error. Try again.');
+      showErr('WebSocket connection failed. Check your Account ID and token.');
     };
     socket.onclose = function(ev) {
       if (done) return; done = true;
@@ -1912,11 +1872,9 @@ function loginWithPAT(token, showErr) {
     };
   })
   .catch(function(err) {
-    console.error('PAT login error:', err);
-    showErr('Login failed: ' + err.message + '. Check your token and try again.');
+    showErr('Failed: ' + err.message);
   });
 }
-
 
 function loginWithLegacy(token, showErr) {
   var btn = document.getElementById('loginBtn');
@@ -1973,6 +1931,20 @@ function guestGo() {
     document.getElementById('appShell').style.display = 'flex';
   }
 }
+
+// Auto-login if valid saved session
+(function() {
+  try {
+    var saved = sessionStorage.getItem('ds_token');
+    var expiry = parseInt(sessionStorage.getItem('ds_expiry') || '0');
+    if (saved && Date.now() < expiry) {
+      document.getElementById('tokenInput').value = saved;
+      userToken = saved;
+      loginGo();
+    }
+  } catch(e) {}
+})();
+
 
 // Auto-login if valid saved session
 (function() {
