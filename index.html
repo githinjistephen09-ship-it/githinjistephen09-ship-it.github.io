@@ -1156,14 +1156,26 @@
   }
 
   // ---------------- Wire up ----------------
+  let lastLegacyAppId = '1089';
+  let lastNewAppId = '';
+  let lastLegacyToken = '';
+  let lastNewToken = '';
   document.querySelectorAll('input[name="apiMode"]').forEach(radio => {
     radio.addEventListener('change', () => {
       if (getApiMode() === 'new') {
+        lastLegacyAppId = appIdInput.value;
+        lastLegacyToken = tokenInput.value;
+        appIdInput.value = lastNewAppId;
+        tokenInput.value = lastNewToken;
         appIdInput.placeholder = 'App ID (alphanumeric, from developers.deriv.com)';
         tokenInput.placeholder = 'Personal Access Token (PAT)';
         optLogin.style.display = 'none';
         optSignup.style.display = 'none';
       } else {
+        lastNewAppId = appIdInput.value;
+        lastNewToken = tokenInput.value;
+        appIdInput.value = lastLegacyAppId;
+        tokenInput.value = lastLegacyToken;
         appIdInput.placeholder = 'App ID';
         tokenInput.placeholder = 'API token (optional, for trading)';
         optLogin.style.display = '';
