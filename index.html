@@ -193,6 +193,16 @@
   .opt-badge{background:var(--focus);color:#fff;font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:20px;text-transform:uppercase;}
   .opt-desc{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4;}
   .opt-chevron{font-size:20px;color:var(--muted);flex-shrink:0;}
+  .modal-divider{
+    font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;
+    text-align:center;margin:18px 0 12px;position:relative;
+  }
+  .modal-divider::before, .modal-divider::after{
+    content:'';position:absolute;top:50%;width:38%;height:1px;background:var(--line);
+  }
+  .modal-divider::before{left:0;} .modal-divider::after{right:0;}
+  .connect-option.disabled{opacity:.55;}
+  .opt-badge.soon{background:var(--warn);color:#2A1B00;}
 </style>
 </head>
 <body>
@@ -226,34 +236,16 @@
       </div>
     </div>
 
-    <button type="button" class="connect-option" id="optLogin">
-      <div class="opt-icon blue">⇄</div>
-      <div class="opt-text">
-        <div class="opt-title">Login <span class="opt-badge">Most common</span></div>
-        <div class="opt-desc">Sign in with your existing Deriv account via OAuth</div>
-      </div>
-      <div class="opt-chevron">›</div>
-    </button>
-
-    <button type="button" class="connect-option" id="optSignup">
-      <div class="opt-icon green">＋</div>
-      <div class="opt-text">
-        <div class="opt-title">Sign Up</div>
-        <div class="opt-desc">New to Deriv? Create an account, then connect automatically</div>
-      </div>
-      <div class="opt-chevron">↗</div>
-    </button>
-
     <button type="button" class="connect-option" id="optToken">
       <div class="opt-icon orange">🔑</div>
       <div class="opt-text">
-        <div class="opt-title">API Token</div>
+        <div class="opt-title">API Token <span class="opt-badge">Recommended</span></div>
         <div class="opt-desc">Connect using a Deriv API token (Trade + Account management)</div>
       </div>
       <div class="opt-chevron">›</div>
     </button>
 
-    <div id="tokenPanel" style="display:none;">
+    <div id="tokenPanel" style="display:block;">
       <label class="modal-field-label">API token</label>
       <div class="token-wrap" style="margin-bottom:10px;">
         <input id="tokenInput" type="password" placeholder="Paste your token here">
@@ -261,6 +253,26 @@
       </div>
       <button type="button" class="btn" id="connectBtn" style="width:100%;">Connect</button>
     </div>
+
+    <div class="modal-divider">Other ways to connect</div>
+
+    <button type="button" class="connect-option disabled" id="optLogin">
+      <div class="opt-icon blue">⇄</div>
+      <div class="opt-text">
+        <div class="opt-title">Login <span class="opt-badge soon">Needs a backend</span></div>
+        <div class="opt-desc">OAuth login — requires a small server component we haven't built yet</div>
+      </div>
+      <div class="opt-chevron">›</div>
+    </button>
+
+    <button type="button" class="connect-option disabled" id="optSignup">
+      <div class="opt-icon green">＋</div>
+      <div class="opt-text">
+        <div class="opt-title">Sign Up <span class="opt-badge soon">Needs a backend</span></div>
+        <div class="opt-desc">Create a Deriv account via OAuth — same backend requirement as Login</div>
+      </div>
+      <div class="opt-chevron">↗</div>
+    </button>
 
     <div id="oauthPicker" style="display:none;margin-top:14px;">
       <span class="note" style="width:100%;display:block;margin-bottom:8px;">Logged in via Deriv. Choose an account:</span>
@@ -444,15 +456,18 @@
     window.location.href = 'https://oauth.deriv.com/oauth2/authorize?app_id=' + encodeURIComponent(appId);
   }
 
-  // Login: if you already have an active Deriv session, Deriv's own page skips
-  // straight to consent (or straight through, if you've approved this app before).
-  // If not logged in, Deriv shows its normal accept/deny screen first — that part
-  // happens entirely on Deriv's side and isn't something Pulse can change.
-  optLogin.addEventListener('click', goToDerivOAuth);
+  function explainBackendNeeded(){
+    const banner = document.getElementById('errBanner');
+    banner.textContent = 'ℹ Login/Sign Up need a small backend server to finish the OAuth handshake — Pulse doesn\'t have one yet, so this isn\'t wired up. Use API Token below instead; it works fully without a backend.';
+    banner.classList.add('show');
+  }
 
-  // Sign Up: same OAuth URL — Deriv's hosted page itself offers "create account"
-  // for people without one, and completing it resumes the same redirect back here.
-  optSignup.addEventListener('click', goToDerivOAuth);
+  // Login/Sign Up via OAuth need a backend to exchange the auth code for a token
+  // (Deriv explicitly disallows doing that exchange from the browser). Pulse is a
+  // static page with no backend, so these are disabled for now — API Token is the
+  // fully-supported way to connect until that backend piece gets built separately.
+  optLogin.addEventListener('click', explainBackendNeeded);
+  optSignup.addEventListener('click', explainBackendNeeded);
 
   optToken.addEventListener('click', () => {
     tokenPanel.style.display = tokenPanel.style.display === 'none' ? 'block' : 'none';
@@ -567,6 +582,15 @@
       statusPill.textContent = 'Connecting…';
       authFailed = false;
       const token = tokenInput.value.trim();
+      if (token && /^pat_/i.test(token)) {
+        const banner = document.getElementById('errBanner');
+        banner.textContent = '⚠ This looks like a New Options API token (starts with "pat_") but Legacy mode is selected. These two systems use different, incompatible tokens. Either switch the mode to "New API (PAT)" above, or paste a token generated from app.deriv.com/account/api-token instead.';
+        banner.classList.add('show');
+        authFailed = true;
+        statusPill.textContent = 'Wrong token type for Legacy mode';
+        loadSymbols();
+        return;
+      }
       if (token) {
         send({ authorize: token });
       } else {
@@ -622,7 +646,12 @@
       loadSymbols();
       setInterval(() => send({ ping: 1 }), 30000);
       const token = tokenInput.value.trim();
-      if (token) {
+      if (token && !/^pat_/i.test(token)) {
+        const banner = document.getElementById('errBanner');
+        banner.textContent = '⚠ This doesn\'t look like a New Options API token (those start with "pat_"). You\'re in New API mode — get a PAT from your app on developers.deriv.com, or switch to Legacy mode to use this token.';
+        banner.classList.add('show');
+        acctNote.textContent = 'Live prices still work above — wrong token type for New API mode.';
+      } else if (token) {
         fetchNewApiAccount(token);
       } else {
         acctNote.textContent = 'New API public mode — live prices only, no token needed. Add a Personal Access Token above to see balance.';
