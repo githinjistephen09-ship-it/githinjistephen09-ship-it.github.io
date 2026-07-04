@@ -1,145 +1,675 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-<title>DerivAI</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PULSE — Deriv Synthetics Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:#0a0f1e;color:#f1f5f9;font-family:sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
-.card{width:100%;max-width:400px;background:#111827;border:1px solid #1f2d45;border-radius:20px;padding:28px;}
-.logo{text-align:center;margin-bottom:24px;}
-.logo h1{font-size:28px;font-weight:700;color:#f1f5f9;}
-.logo h1 span{color:#38bdf8;}
-.logo p{font-size:10px;color:#475569;letter-spacing:3px;margin-top:4px;}
-.logo small{font-size:10px;color:#38bdf8;font-weight:700;}
-.err{display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px;margin-bottom:14px;color:#ef4444;font-size:13px;}
-.lbl{font-size:10px;font-weight:600;color:#475569;letter-spacing:1px;margin-bottom:6px;}
-.inp-wrap{position:relative;margin-bottom:6px;}
-input{width:100%;padding:14px 44px 14px 14px;background:#0a0f1e;border:1px solid #1f2d45;border-radius:10px;color:#f1f5f9;font-size:13px;font-family:monospace;outline:none;-webkit-appearance:none;}
-input:focus{border-color:#38bdf8;}
-.eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#475569;cursor:pointer;font-size:18px;}
-.hint{font-size:10px;color:#334155;text-align:center;margin-bottom:18px;}
-.btn-main{width:100%;padding:15px;background:#ef4444;border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px;box-shadow:0 4px 20px rgba(239,68,68,.35);}
-.divider{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
-.divider div{flex:1;height:1px;background:#1f2d45;}
-.divider span{color:#334155;font-size:11px;}
-.btn-guest{width:100%;padding:13px;background:transparent;border:1px solid #1f2d45;border-radius:12px;color:#475569;font-size:13px;cursor:pointer;}
-.footer{text-align:center;margin-top:14px;font-size:10px;color:#1e293b;}
-/* App screen */
-#app{display:none;text-align:center;padding:40px 20px;}
-#app h2{color:#22c55e;font-size:24px;margin-bottom:12px;}
-#app p{color:#94a3b8;font-size:14px;margin-bottom:8px;}
-#app button{padding:12px 24px;background:#1f2d45;border:none;border-radius:10px;color:#94a3b8;font-size:13px;cursor:pointer;margin-top:16px;}
+  :root{
+    --bg:#0A0C10;
+    --panel:#12151C;
+    --panel-2:#181C25;
+    --line:#232833;
+    --text:#E8EAED;
+    --muted:#7A8290;
+    --up:#00E5C7;
+    --down:#FF5C7A;
+    --warn:#F5B942;
+    --focus:#5B9DFF;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;height:100%;overflow-x:hidden;}
+  ::selection{background:var(--up);color:#000;}
+  button{font-family:inherit;cursor:pointer;}
+  input{font-family:inherit;}
+  *:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms !important; transition-duration:.01ms !important;} }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex;align-items:center;gap:14px;
+    padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:20;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:9px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;letter-spacing:0.5px;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);transition:background .3s,box-shadow .3s;}
+  .brand .dot.live{background:var(--up);box-shadow:0 0 8px var(--up);animation:heartbeat 1.6s ease-in-out infinite;}
+  @keyframes heartbeat{0%,100%{transform:scale(1);}50%{transform:scale(1.35);}}
+  .conn-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;}
+  .conn-form input{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:7px 10px;border-radius:6px;font-size:13px;width:150px;font-family:'IBM Plex Mono',monospace;
+  }
+  .conn-form input::placeholder{color:var(--muted);}
+  .btn{
+    background:var(--up);color:#04141F;border:none;padding:8px 16px;border-radius:6px;
+    font-weight:600;font-size:13px;transition:filter .15s, transform .1s;
+  }
+  .btn:hover{filter:brightness(1.1);}
+  .btn:active{transform:scale(.97);}
+  .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--text);}
+  .btn.danger{background:var(--down);color:#2A0509;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .status-pill{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:4px 9px;border:1px solid var(--line);border-radius:20px;}
+
+  /* ---------- Layout ---------- */
+  .layout{display:grid;grid-template-columns:260px 1fr 300px;gap:1px;background:var(--line);min-height:calc(100vh - 56px);}
+  @media (max-width:980px){.layout{grid-template-columns:1fr;}}
+
+  /* ---------- Symbol list ---------- */
+  .symlist{background:var(--bg);overflow-y:auto;max-height:calc(100vh - 56px);}
+  .symlist-header{padding:12px 14px 6px;font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;font-family:'Space Grotesk',sans-serif;}
+  .sym-row{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s;
+  }
+  .sym-row:hover{background:var(--panel);}
+  .sym-row.active{background:var(--panel-2);border-left:2px solid var(--up);}
+  .sym-name{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .sym-name b{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sym-name span{font-size:10px;color:var(--muted);}
+  .sym-right{display:flex;align-items:center;gap:8px;}
+  .sym-price{font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;}
+  .pulse-wrap{width:44px;height:20px;position:relative;}
+  .pulse-wrap canvas{width:100%;height:100%;}
+  .empty-note{padding:24px 14px;color:var(--muted);font-size:12.5px;line-height:1.6;}
+
+  /* ---------- Main panel ---------- */
+  .main{background:var(--bg);padding:18px;overflow-y:auto;max-height:calc(100vh - 56px);}
+  .main-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .main-title{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;}
+  .main-sub{color:var(--muted);font-size:12.5px;margin-top:3px;}
+  .live-price{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;}
+  .chart-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;}
+  canvas#mainChart{width:100%;height:260px;display:block;}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+  .stat-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .stat-card .label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+  .stat-card .value{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;}
+  .value.up{color:var(--up);} .value.down{color:var(--down);}
+  .signal-bar-track{height:8px;border-radius:4px;background:var(--panel-2);overflow:hidden;margin-top:8px;}
+  .signal-bar-fill{height:100%;border-radius:4px;transition:width .3s ease;}
+  .disclaimer{font-size:11.5px;color:var(--muted);line-height:1.6;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;}
+
+  /* ---------- Trade panel ---------- */
+  .tradepanel{background:var(--bg);padding:16px;overflow-y:auto;max-height:calc(100vh - 56px);}
+  .section-title{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;}
+  .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{color:var(--muted);}
+  .row input[type=number]{
+    width:90px;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:6px 8px;border-radius:6px;font-family:'IBM Plex Mono',monospace;text-align:right;
+  }
+  .toggle{position:relative;width:40px;height:22px;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;cursor:pointer;flex-shrink:0;}
+  .toggle .knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:.2s;}
+  .toggle.on{background:rgba(0,229,199,.15);border-color:var(--up);}
+  .toggle.on .knob{transform:translateX(18px);background:var(--up);}
+  .balance-line{display:flex;justify-content:space-between;align-items:baseline;}
+  .balance-line .num{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;}
+  .log{max-height:220px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
+  .log-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);gap:6px;}
+  .log-row:last-child{border-bottom:none;}
+  .log-row .win{color:var(--up);} .log-row .loss{color:var(--down);}
+  .note{font-size:11.5px;color:var(--muted);line-height:1.6;}
+  .req-lock{opacity:.45;pointer-events:none;}
 </style>
 </head>
 <body>
 
-<div id="loginPage">
-  <div class="card">
-    <div class="logo">
-      <h1>Deriv<span>AI</span></h1>
-      <p>PIONEER &middot; POWER &middot; BOY BOY</p>
-      <small>v10 LATEST</small>
-    </div>
-    <div id="LE" class="err"></div>
-    <div class="lbl">YOUR API TOKEN</div>
-    <div class="inp-wrap">
-      <input id="tok" type="password" placeholder="pat_xxxxxxxxxxxxxxxxxxxxxxxx"/>
-      <button class="eye" type="button" onclick="var i=document.getElementById('tok');i.type=i.type=='password'?'text':'password';">&#128065;</button>
-    </div>
-    <div class="hint">Token sent directly to Deriv &middot; Never stored &middot; Never shared</div>
-    <button class="btn-main" type="button" id="btn" onclick="doConnect()">&#128308; CONNECT TO DERIV</button>
-    <div class="divider"><div></div><span>or</span><div></div></div>
-    <button class="btn-guest" type="button" onclick="doGuest()">Continue without token (analysis only)</button>
+<div class="topbar">
+  <div class="brand"><span class="dot" id="liveDot"></span>PULSE</div>
+  <div class="conn-form">
+    <input id="appIdInput" type="text" placeholder="App ID (yours, from api.deriv.com)" value="1089">
+    <input id="tokenInput" type="password" placeholder="API token (optional, for trading)">
+    <button class="btn" id="connectBtn">Connect</button>
+    <button class="btn secondary" id="disconnectBtn" disabled>Disconnect</button>
   </div>
-  <div class="footer">Not financial advice &middot; Use demo first &middot; Trade at your own risk</div>
+  <span class="status-pill" id="statusPill">Disconnected</span>
 </div>
 
-<div id="app">
-  <h2>&#10003; Connected!</h2>
-  <p id="appName"></p>
-  <p id="appBal"></p>
-  <p id="appType"></p>
-  <button onclick="location.reload()">Logout</button>
+<div class="layout">
+
+  <!-- SYMBOL LIST -->
+  <div class="symlist">
+    <div class="symlist-header">Synthetic Indices</div>
+    <div id="symListBody">
+      <div class="empty-note">Connect to load live synthetic indices (Volatility, Boom/Crash, Jump, Step, Range Break).</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="main-head">
+      <div>
+        <div class="main-title" id="mainTitle">Select a symbol</div>
+        <div class="main-sub" id="mainSub">Live tick data will appear here once connected.</div>
+      </div>
+      <div class="live-price" id="livePrice">—</div>
+    </div>
+
+    <div class="chart-box">
+      <canvas id="mainChart" width="900" height="260"></canvas>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">Momentum (short/long)</div><div class="value" id="statMomentum">—</div></div>
+      <div class="stat-card"><div class="label">Realized volatility</div><div class="value" id="statVol">—</div></div>
+      <div class="stat-card"><div class="label">Tick count (session)</div><div class="value" id="statTicks">—</div></div>
+      <div class="stat-card"><div class="label">Last change</div><div class="value" id="statChange">—</div></div>
+    </div>
+
+    <div class="stat-card" style="margin-bottom:14px;">
+      <div class="label">Signal strength (directional bias, not a prediction)</div>
+      <div class="value" id="signalLabel">—</div>
+      <div class="signal-bar-track"><div class="signal-bar-fill" id="signalBarFill" style="width:0%;background:var(--muted);"></div></div>
+    </div>
+
+    <div class="disclaimer">
+      Signal strength is a simple heuristic derived from short vs. long moving-average momentum and recent volatility on live ticks. It is not a prediction of future price movement, is not financial advice, and synthetic indices carry high risk. Always test on a demo account before risking real funds.
+    </div>
+  </div>
+
+  <!-- TRADE PANEL -->
+  <div class="tradepanel">
+    <div class="section-title">Account</div>
+    <div class="card">
+      <div class="balance-line">
+        <span class="note">Balance</span>
+        <span class="num" id="balanceVal">—</span>
+      </div>
+      <div class="note" style="margin-top:6px;" id="acctNote">Add an API token above and connect to authorize.</div>
+    </div>
+
+    <div class="section-title">Auto-trade</div>
+    <div class="card" id="autoCard">
+      <div class="row">
+        <label>Enable auto-trade</label>
+        <div class="toggle" id="autoToggle"><div class="knob"></div></div>
+      </div>
+      <div class="row"><label>Stake (USD)</label><input type="number" id="stakeInput" value="1" min="0.35" step="0.5"></div>
+      <div class="row"><label>Contract duration (ticks)</label><input type="number" id="durInput" value="5" min="1" max="10" step="1"></div>
+      <div class="row"><label>Signal threshold %</label><input type="number" id="threshInput" value="65" min="50" max="95" step="1"></div>
+      <div class="row"><label>Martingale multiplier</label><input type="number" id="martInput" value="1" min="1" max="3" step="0.1"></div>
+      <div class="row"><label>Max martingale steps</label><input type="number" id="martStepsInput" value="0" min="0" max="6" step="1"></div>
+      <div class="row"><label>Daily loss limit (USD)</label><input type="number" id="lossLimitInput" value="10" min="1" step="1"></div>
+      <div class="row"><label>Daily profit target (USD)</label><input type="number" id="profitTargetInput" value="10" min="1" step="1"></div>
+    </div>
+    <div class="note" id="riskNote" style="margin:-6px 0 14px;">Requires an authorized API token. Trades on the currently selected symbol only.</div>
+
+    <div class="section-title">Session P/L</div>
+    <div class="card">
+      <div class="row"><label>Net P/L</label><span class="num" id="plVal" style="font-family:'IBM Plex Mono',monospace;font-weight:600;">$0.00</span></div>
+      <div class="row"><label>Trades</label><span id="tradeCountVal">0</span></div>
+      <div class="row"><label>Win rate</label><span id="winRateVal">—</span></div>
+    </div>
+
+    <div class="section-title">Trade log</div>
+    <div class="card"><div class="log" id="tradeLog"><div class="note">No trades yet.</div></div></div>
+  </div>
+
 </div>
 
 <script>
-function showErr(msg) {
-  var el = document.getElementById('LE');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-function setBtn(txt, dis) {
-  var b = document.getElementById('btn');
-  b.textContent = txt;
-  b.disabled = dis;
-  b.style.opacity = dis ? '0.6' : '1';
-}
-function doGuest() {
-  document.getElementById('loginPage').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('appName').textContent = 'Guest mode - analysis only';
-  document.getElementById('appBal').textContent = '';
-  document.getElementById('appType').textContent = '';
-}
-function doConnect() {
-  var token = document.getElementById('tok').value.trim();
-  if (!token) { showErr('Please paste your API token'); return; }
-  if (token.length < 10) { showErr('Token too short'); return; }
-  document.getElementById('LE').style.display = 'none';
-  setBtn('CONNECTING...', true);
-  var ws;
-  try {
-    ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=36544');
-  } catch(e) {
-    showErr('Cannot connect: ' + e.message);
-    setBtn('CONNECT TO DERIV', false);
-    return;
+(function(){
+  "use strict";
+
+  // ---------------- State ----------------
+  let ws = null;
+  let authorized = false;
+  let symbols = {};          // symbol -> {display_name, market, sub}
+  let ticks = {};            // symbol -> [{t, p}]
+  let activeSymbol = null;
+  const MAX_TICKS = 200;
+
+  let autoTradeOn = false;
+  let martingaleStep = 0;
+  let currentStake = 1;
+  let sessionPL = 0;
+  let tradeCount = 0;
+  let winCount = 0;
+  let tradingHalted = false;
+  let pendingContract = false;
+  let reqIdCounter = 1;
+  const pendingReqs = {}; // req_id -> resolver
+
+  // ---------------- DOM refs ----------------
+  const $ = (id) => document.getElementById(id);
+  const appIdInput = $('appIdInput');
+  const tokenInput = $('tokenInput');
+  const connectBtn = $('connectBtn');
+  const disconnectBtn = $('disconnectBtn');
+  const statusPill = $('statusPill');
+  const liveDot = $('liveDot');
+  const symListBody = $('symListBody');
+  const mainTitle = $('mainTitle');
+  const mainSub = $('mainSub');
+  const livePrice = $('livePrice');
+  const statMomentum = $('statMomentum');
+  const statVol = $('statVol');
+  const statTicks = $('statTicks');
+  const statChange = $('statChange');
+  const signalLabel = $('signalLabel');
+  const signalBarFill = $('signalBarFill');
+  const balanceVal = $('balanceVal');
+  const acctNote = $('acctNote');
+  const autoToggle = $('autoToggle');
+  const stakeInput = $('stakeInput');
+  const durInput = $('durInput');
+  const threshInput = $('threshInput');
+  const martInput = $('martInput');
+  const martStepsInput = $('martStepsInput');
+  const lossLimitInput = $('lossLimitInput');
+  const profitTargetInput = $('profitTargetInput');
+  const plVal = $('plVal');
+  const tradeCountVal = $('tradeCountVal');
+  const winRateVal = $('winRateVal');
+  const tradeLog = $('tradeLog');
+  const mainChart = $('mainChart');
+  const ctx = mainChart.getContext('2d');
+
+  // ---------------- WebSocket helpers ----------------
+  function send(payload){
+    if (!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify(payload));
   }
-  var done = false;
-  var timer = setTimeout(function() {
-    if (done) return;
-    done = true;
-    try { ws.close(); } catch(x) {}
-    showErr('Timed out. Try again.');
-    setBtn('CONNECT TO DERIV', false);
-  }, 15000);
-  ws.onopen = function() {
-    setBtn('AUTHORIZING...', true);
-    ws.send(JSON.stringify({authorize: token}));
-  };
-  ws.onmessage = function(e) {
-    var d; try { d = JSON.parse(e.data); } catch(x) { return; }
-    if (d.msg_type !== 'authorize') return;
-    clearTimeout(timer); done = true;
-    try { ws.close(); } catch(x) {}
-    if (d.error) {
-      showErr('Error: ' + (d.error.message || 'Invalid token'));
-      setBtn('CONNECT TO DERIV', false);
+
+  function sendAndWait(payload){
+    return new Promise((resolve) => {
+      const id = reqIdCounter++;
+      payload.req_id = id;
+      pendingReqs[id] = resolve;
+      send(payload);
+    });
+  }
+
+  function connect(){
+    const appId = (appIdInput.value || '1089').trim();
+    const url = 'wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(appId);
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      statusPill.textContent = 'Connecting…';
+      const token = tokenInput.value.trim();
+      if (token) {
+        send({ authorize: token });
+      } else {
+        loadSymbols();
+      }
+      liveDot.classList.add('live');
+      connectBtn.disabled = true;
+      disconnectBtn.disabled = false;
+      setInterval(() => send({ ping: 1 }), 30000);
+    };
+
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
+      handleMessage(data);
+    };
+
+    ws.onclose = () => {
+      statusPill.textContent = 'Disconnected';
+      liveDot.classList.remove('live');
+      connectBtn.disabled = false;
+      disconnectBtn.disabled = true;
+      authorized = false;
+    };
+
+    ws.onerror = () => {
+      statusPill.textContent = 'Connection error';
+    };
+  }
+
+  function disconnect(){
+    if (ws) ws.close();
+  }
+
+  function loadSymbols(){
+    statusPill.textContent = authorized ? 'Authorized · loading symbols' : 'Loading symbols';
+    send({ active_symbols: 'brief', product_type: 'basic' });
+  }
+
+  // ---------------- Message router ----------------
+  function handleMessage(data){
+    if (data.req_id && pendingReqs[data.req_id]) {
+      const resolve = pendingReqs[data.req_id];
+      delete pendingReqs[data.req_id];
+      resolve(data);
+    }
+
+    if (data.error) {
+      if (data.msg_type === 'authorize') {
+        statusPill.textContent = 'Auth failed — check token';
+        loadSymbols();
+      } else if (data.msg_type === 'buy' || data.msg_type === 'proposal') {
+        logTrade(null, 'Error: ' + data.error.message, 0);
+        pendingContract = false;
+      }
       return;
     }
-    var a = d.authorize;
-    document.getElementById('loginPage').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    document.getElementById('appName').textContent = 'Welcome ' + (a.fullname || a.email || 'Trader');
-    document.getElementById('appBal').textContent = 'Balance: ' + (a.currency||'USD') + ' ' + parseFloat(a.balance||0).toFixed(2);
-    document.getElementById('appType').textContent = a.is_virtual ? 'Demo Account' : 'Real Account';
-  };
-  ws.onerror = function() {
-    if (done) return;
-    clearTimeout(timer); done = true;
-    try { ws.close(); } catch(x) {}
-    showErr('Connection error. Try again.');
-    setBtn('CONNECT TO DERIV', false);
-  };
-  ws.onclose = function(ev) {
-    if (done) return;
-    clearTimeout(timer); done = true;
-    showErr('Connection closed (code:' + ev.code + '). Try again.');
-    setBtn('CONNECT TO DERIV', false);
-  };
-}
+
+    switch (data.msg_type) {
+      case 'authorize':
+        authorized = true;
+        statusPill.textContent = 'Authorized: ' + data.authorize.loginid;
+        acctNote.textContent = 'Authorized as ' + data.authorize.loginid + '. Trading enabled on selected symbol.';
+        balanceVal.textContent = data.authorize.currency + ' ' + Number(data.authorize.balance).toFixed(2);
+        send({ balance: 1, subscribe: 1 });
+        loadSymbols();
+        break;
+
+      case 'balance':
+        balanceVal.textContent = data.balance.currency + ' ' + Number(data.balance.balance).toFixed(2);
+        break;
+
+      case 'active_symbols':
+        registerSymbols(data.active_symbols);
+        statusPill.textContent = 'Connected · live';
+        break;
+
+      case 'tick':
+        handleTick(data.tick);
+        break;
+
+      case 'proposal':
+        if (pendingContract && data.proposal) {
+          send({ buy: data.proposal.id, price: data.proposal.ask_price });
+        }
+        break;
+
+      case 'buy':
+        pendingContract = false;
+        martingaleStep = (martingaleStep > 0) ? martingaleStep : 0;
+        logTrade(data.buy.contract_id, 'Bought ' + data.buy.longcode, null);
+        pollContract(data.buy.contract_id);
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  // ---------------- Symbols ----------------
+  function registerSymbols(list){
+    const synth = list.filter(s => s.market === 'synthetic_index');
+    synth.forEach(s => {
+      if (!symbols[s.symbol]) {
+        symbols[s.symbol] = { display_name: s.display_name, submarket: s.submarket_display_name };
+        ticks[s.symbol] = [];
+      }
+    });
+    renderSymbolList();
+    synth.forEach(s => send({ ticks: s.symbol, subscribe: 1 }));
+    if (!activeSymbol && synth.length) selectSymbol(synth[0].symbol);
+  }
+
+  function renderSymbolList(){
+    symListBody.innerHTML = '';
+    Object.keys(symbols).sort().forEach(sym => {
+      const info = symbols[sym];
+      const row = document.createElement('div');
+      row.className = 'sym-row' + (sym === activeSymbol ? ' active' : '');
+      row.dataset.sym = sym;
+      row.innerHTML =
+        '<div class="sym-name"><b>' + info.display_name + '</b><span>' + (info.submarket || '') + '</span></div>' +
+        '<div class="sym-right">' +
+          '<div class="pulse-wrap"><canvas id="pulse-' + sanitize(sym) + '" width="88" height="40"></canvas></div>' +
+          '<div class="sym-price" id="price-' + sanitize(sym) + '">—</div>' +
+        '</div>';
+      row.addEventListener('click', () => selectSymbol(sym));
+      symListBody.appendChild(row);
+    });
+  }
+
+  function sanitize(sym){ return sym.replace(/[^a-zA-Z0-9]/g,'_'); }
+
+  function selectSymbol(sym){
+    activeSymbol = sym;
+    document.querySelectorAll('.sym-row').forEach(r => r.classList.toggle('active', r.dataset.sym === sym));
+    mainTitle.textContent = symbols[sym] ? symbols[sym].display_name : sym;
+    mainSub.textContent = 'Symbol: ' + sym;
+    martingaleStep = 0;
+    currentStake = parseFloat(stakeInput.value) || 1;
+    drawMainChart();
+  }
+
+  // ---------------- Ticks ----------------
+  function handleTick(tick){
+    const sym = tick.symbol;
+    if (!ticks[sym]) ticks[sym] = [];
+    ticks[sym].push({ t: tick.epoch, p: tick.quote });
+    if (ticks[sym].length > MAX_TICKS) ticks[sym].shift();
+
+    const priceEl = document.getElementById('price-' + sanitize(sym));
+    if (priceEl) {
+      const arr = ticks[sym];
+      const prev = arr.length > 1 ? arr[arr.length - 2].p : tick.quote;
+      priceEl.textContent = tick.quote;
+      priceEl.style.color = tick.quote >= prev ? 'var(--up)' : 'var(--down)';
+    }
+    drawPulse(sym);
+
+    if (sym === activeSymbol) {
+      livePrice.textContent = tick.quote;
+      updateStats(sym);
+      drawMainChart();
+      maybeAutoTrade(sym);
+    }
+  }
+
+  function drawPulse(sym){
+    const c = document.getElementById('pulse-' + sanitize(sym));
+    if (!c) return;
+    const pctx = c.getContext('2d');
+    const arr = ticks[sym].slice(-40);
+    pctx.clearRect(0,0,c.width,c.height);
+    if (arr.length < 2) return;
+    const prices = arr.map(a => a.p);
+    const min = Math.min(...prices), max = Math.max(...prices);
+    const range = (max - min) || 1;
+    pctx.beginPath();
+    arr.forEach((pt, i) => {
+      const x = (i / (arr.length - 1)) * c.width;
+      const y = c.height - ((pt.p - min) / range) * c.height;
+      if (i === 0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+    });
+    const up = prices[prices.length-1] >= prices[0];
+    pctx.strokeStyle = up ? '#00E5C7' : '#FF5C7A';
+    pctx.lineWidth = 1.5;
+    pctx.stroke();
+  }
+
+  function drawMainChart(){
+    ctx.clearRect(0,0,mainChart.width, mainChart.height);
+    const arr = ticks[activeSymbol] || [];
+    if (arr.length < 2) return;
+    const prices = arr.map(a => a.p);
+    const min = Math.min(...prices), max = Math.max(...prices);
+    const range = (max - min) || 1;
+    const pad = 10;
+    // grid
+    ctx.strokeStyle = '#1B2029';
+    ctx.lineWidth = 1;
+    for (let i=1;i<4;i++){
+      const y = pad + (i/4)*(mainChart.height - pad*2);
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(mainChart.width,y); ctx.stroke();
+    }
+    // line
+    ctx.beginPath();
+    arr.forEach((pt,i) => {
+      const x = (i/(arr.length-1)) * mainChart.width;
+      const y = mainChart.height - pad - ((pt.p - min)/range) * (mainChart.height - pad*2);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    const up = prices[prices.length-1] >= prices[0];
+    ctx.strokeStyle = up ? '#00E5C7' : '#FF5C7A';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // fill
+    ctx.lineTo(mainChart.width,mainChart.height);
+    ctx.lineTo(0,mainChart.height);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0,0,0,mainChart.height);
+    grad.addColorStop(0, up ? 'rgba(0,229,199,0.18)' : 'rgba(255,92,122,0.18)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // ---------------- Stats / signal ----------------
+  function computeSignal(sym){
+    const arr = ticks[sym] || [];
+    if (arr.length < 20) return null;
+    const prices = arr.map(a => a.p);
+    const shortN = 5, longN = 20;
+    const shortMA = avg(prices.slice(-shortN));
+    const longMA = avg(prices.slice(-longN));
+    const returns = [];
+    for (let i=1;i<prices.length;i++) returns.push((prices[i]-prices[i-1])/prices[i-1]);
+    const vol = stdev(returns.slice(-longN)) * 100;
+    const momentum = ((shortMA - longMA) / longMA) * 100;
+    // squash momentum into 0-100 confidence, direction from sign
+    const strength = Math.min(100, Math.abs(momentum) * 4000);
+    const direction = momentum >= 0 ? 'UP' : 'DOWN';
+    return { momentum, vol, strength, direction, shortMA, longMA };
+  }
+
+  function avg(a){ return a.reduce((x,y)=>x+y,0)/a.length; }
+  function stdev(a){
+    const m = avg(a);
+    return Math.sqrt(avg(a.map(x => (x-m)*(x-m))));
+  }
+
+  function updateStats(sym){
+    const arr = ticks[sym] || [];
+    statTicks.textContent = arr.length;
+    if (arr.length >= 2) {
+      const last = arr[arr.length-1].p, prev = arr[arr.length-2].p;
+      const chg = last - prev;
+      statChange.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(5);
+      statChange.className = 'value ' + (chg >= 0 ? 'up' : 'down');
+    }
+    const sig = computeSignal(sym);
+    if (!sig) {
+      statMomentum.textContent = '—'; statVol.textContent = '—';
+      signalLabel.textContent = 'Gathering ticks…'; signalBarFill.style.width = '0%';
+      return;
+    }
+    statMomentum.textContent = sig.momentum.toFixed(4) + '%';
+    statMomentum.className = 'value ' + (sig.momentum >= 0 ? 'up' : 'down');
+    statVol.textContent = sig.vol.toFixed(4) + '%';
+    signalLabel.textContent = sig.direction + ' bias · ' + sig.strength.toFixed(0) + '%';
+    signalBarFill.style.width = sig.strength + '%';
+    signalBarFill.style.background = sig.direction === 'UP' ? 'var(--up)' : 'var(--down)';
+  }
+
+  // ---------------- Auto-trade ----------------
+  autoToggle.addEventListener('click', () => {
+    if (!authorized) { flashRiskNote('Connect with an API token to enable auto-trade.'); return; }
+    autoTradeOn = !autoTradeOn;
+    autoToggle.classList.toggle('on', autoTradeOn);
+    if (autoTradeOn) { tradingHalted = false; martingaleStep = 0; currentStake = parseFloat(stakeInput.value) || 1; }
+  });
+
+  function flashRiskNote(msg){
+    const note = $('riskNote');
+    const original = note.textContent;
+    note.textContent = msg;
+    note.style.color = 'var(--warn)';
+    setTimeout(() => { note.textContent = original; note.style.color = ''; }, 3000);
+  }
+
+  function maybeAutoTrade(sym){
+    if (!autoTradeOn || !authorized || pendingContract || tradingHalted) return;
+    if (sym !== activeSymbol) return;
+
+    const lossLimit = parseFloat(lossLimitInput.value) || 0;
+    const profitTarget = parseFloat(profitTargetInput.value) || 0;
+    if (sessionPL <= -Math.abs(lossLimit)) { haltTrading('Daily loss limit reached.'); return; }
+    if (sessionPL >= Math.abs(profitTarget)) { haltTrading('Daily profit target reached.'); return; }
+
+    const sig = computeSignal(sym);
+    if (!sig) return;
+    const threshold = parseFloat(threshInput.value) || 65;
+    if (sig.strength < threshold) return;
+
+    const contractType = sig.direction === 'UP' ? 'CALL' : 'PUT';
+    const duration = parseInt(durInput.value) || 5;
+    pendingContract = true;
+
+    send({
+      proposal: 1,
+      subscribe: 1,
+      amount: Number(currentStake.toFixed(2)),
+      basis: 'stake',
+      contract_type: contractType,
+      currency: (symbols[sym] && symbols[sym].currency) || 'USD',
+      duration: duration,
+      duration_unit: 't',
+      symbol: sym
+    });
+  }
+
+  function haltTrading(msg){
+    tradingHalted = true;
+    autoTradeOn = false;
+    autoToggle.classList.remove('on');
+    flashRiskNote(msg);
+  }
+
+  function pollContract(contractId){
+    const interval = setInterval(async () => {
+      const res = await sendAndWait({ proposal_open_contract: 1, contract_id: contractId });
+      const c = res.proposal_open_contract;
+      if (c && c.is_sold) {
+        clearInterval(interval);
+        const profit = Number(c.profit);
+        sessionPL += profit;
+        tradeCount++;
+        if (profit > 0) { winCount++; martingaleStep = 0; currentStake = parseFloat(stakeInput.value) || 1; }
+        else {
+          const maxSteps = parseInt(martStepsInput.value) || 0;
+          const mult = parseFloat(martInput.value) || 1;
+          if (martingaleStep < maxSteps) {
+            martingaleStep++;
+            currentStake = currentStake * mult;
+          } else {
+            martingaleStep = 0;
+            currentStake = parseFloat(stakeInput.value) || 1;
+          }
+        }
+        updatePL();
+        logTrade(contractId, (profit >= 0 ? 'Win' : 'Loss') + ' on ' + c.display_name, profit);
+      }
+    }, 2000);
+  }
+
+  function updatePL(){
+    plVal.textContent = (sessionPL >= 0 ? '+' : '') + '$' + sessionPL.toFixed(2);
+    plVal.style.color = sessionPL >= 0 ? 'var(--up)' : 'var(--down)';
+    tradeCountVal.textContent = tradeCount;
+    winRateVal.textContent = tradeCount ? Math.round((winCount/tradeCount)*100) + '%' : '—';
+  }
+
+  function logTrade(contractId, text, profit){
+    if (tradeLog.querySelector('.note')) tradeLog.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    const cls = profit === null ? '' : (profit >= 0 ? 'win' : 'loss');
+    const amtText = profit === null ? '' : ((profit >= 0 ? '+' : '') + '$' + profit.toFixed(2));
+    row.innerHTML = '<span>' + text + '</span><span class="' + cls + '">' + amtText + '</span>';
+    tradeLog.prepend(row);
+  }
+
+  // ---------------- Wire up ----------------
+  connectBtn.addEventListener('click', connect);
+  disconnectBtn.addEventListener('click', disconnect);
+
+  window.addEventListener('beforeunload', () => { if (ws) ws.close(); });
+})();
 </script>
 </body>
 </html>
