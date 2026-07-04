@@ -155,6 +155,14 @@
     <span class="acct-badge" id="topAcctBadge" style="display:none;"></span>
     <span class="status-pill" id="statusPill">Disconnected</span>
   </div>
+  <div class="conn-form" style="width:100%;gap:14px;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);">
+      <input type="radio" name="apiMode" id="modeLegacy" value="legacy" checked> Legacy (numeric App ID)
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);">
+      <input type="radio" name="apiMode" id="modeNew" value="new"> New Options API (PAT, no App ID needed for prices)
+    </label>
+  </div>
   <div class="conn-form">
     <input id="appIdInput" type="text" placeholder="App ID" value="1089">
     <div class="token-wrap">
@@ -398,7 +406,16 @@
     });
   }
 
+  function getApiMode(){
+    const el = document.querySelector('input[name="apiMode"]:checked');
+    return el ? el.value : 'legacy';
+  }
+
   function connect(){
+    if (getApiMode() === 'new') connectNew(); else connectLegacy();
+  }
+
+  function connectLegacy(){
     const appId = (appIdInput.value || '1089').trim();
     const url = 'wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(appId);
     let banner;
@@ -446,6 +463,89 @@
     ws.onerror = () => {
       statusPill.textContent = 'Connection error';
     };
+  }
+
+  function connectNew(){
+    const url = 'wss://api.derivws.com/trading/v1/options/ws/public';
+    let banner;
+    try {
+      ws = new WebSocket(url);
+    } catch (err) {
+      banner = document.getElementById('errBanner');
+      banner.textContent = '⚠ Could not open New API WebSocket: ' + err.message;
+      banner.classList.add('show');
+      return;
+    }
+
+    ws.onopen = () => {
+      statusPill.textContent = 'Connected · public market data (New API)';
+      liveDot.classList.add('live');
+      connectBtn.disabled = true;
+      disconnectBtn.disabled = false;
+      loadSymbols();
+      setInterval(() => send({ ping: 1 }), 30000);
+      const token = tokenInput.value.trim();
+      if (token) {
+        fetchNewApiAccount(token);
+      } else {
+        acctNote.textContent = 'New API public mode — live prices only, no token needed. Add a Personal Access Token above to see balance.';
+      }
+    };
+
+    ws.onmessage = (evt) => {
+      const data = JSON.parse(evt.data);
+      handleMessage(data);
+    };
+
+    ws.onclose = () => {
+      statusPill.textContent = 'Disconnected';
+      liveDot.classList.remove('live');
+      connectBtn.disabled = false;
+      disconnectBtn.disabled = true;
+      authorized = false;
+      acctBadge.style.display = 'none';
+      topAcctBadge.style.display = 'none';
+      acctLoginId.textContent = '';
+    };
+
+    ws.onerror = () => {
+      statusPill.textContent = 'Connection error';
+    };
+  }
+
+  async function fetchNewApiAccount(pat){
+    const banner = document.getElementById('errBanner');
+    try {
+      const appId = (appIdInput.value || '').trim();
+      const headers = { 'Authorization': 'Bearer ' + pat };
+      if (appId) headers['Deriv-App-ID'] = appId;
+      const res = await fetch('https://api.derivws.com/trading/v1/options/accounts', { headers });
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' — check PAT and App ID header');
+      const data = await res.json();
+      const accounts = Array.isArray(data) ? data : (data.accounts || []);
+      if (!accounts.length) throw new Error('No accounts returned by this endpoint');
+      const acc = accounts[0];
+      authorized = true;
+      const loginid = acc.login_id || acc.id || acc.account_id || 'Unknown account';
+      const isDemo = /demo/i.test(acc.type || acc.account_type || '') || /^VR/i.test(String(loginid));
+      statusPill.textContent = 'Authorized (New API) · ' + loginid;
+      acctNote.textContent = 'Authorized as ' + loginid + ' via the New Options API. Auto-trade for this mode is experimental and disabled for now — switch to Legacy mode to trade.';
+      acctLoginId.textContent = loginid;
+      [acctBadge, topAcctBadge].forEach(el => {
+        el.textContent = isDemo ? 'Demo' : 'Real';
+        el.className = 'acct-badge ' + (isDemo ? 'demo' : 'real');
+        el.style.display = 'inline-flex';
+      });
+      if (acc.balance !== undefined) {
+        balanceVal.textContent = (acc.currency || '') + ' ' + Number(acc.balance).toFixed(2);
+      } else {
+        balanceVal.textContent = 'Not returned by this endpoint';
+      }
+    } catch (err) {
+      banner.textContent = '⚠ New API account fetch failed: ' + err.message + '. This endpoint is new — double-check the PAT was created with the right scope, and that the App ID field has your alphanumeric App ID from developers.deriv.com.';
+      banner.classList.add('show');
+      acctNote.textContent = 'Could not fetch account info from the New API — live prices still work above.';
+    }
   }
 
   function disconnect(){
@@ -706,6 +806,7 @@
 
   // ---------------- Auto-trade ----------------
   autoToggle.addEventListener('click', () => {
+    if (getApiMode() === 'new') { flashRiskNote('Auto-trade isn\'t wired up for New API mode yet — switch to Legacy mode to trade.'); return; }
     if (!authorized) { flashRiskNote('Connect with an API token to enable auto-trade.'); return; }
     autoTradeOn = !autoTradeOn;
     autoToggle.classList.toggle('on', autoTradeOn);
@@ -803,6 +904,20 @@
   }
 
   // ---------------- Wire up ----------------
+  document.querySelectorAll('input[name="apiMode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (getApiMode() === 'new') {
+        appIdInput.placeholder = 'App ID (alphanumeric, from developers.deriv.com)';
+        tokenInput.placeholder = 'Personal Access Token (PAT)';
+        oauthBtn.style.display = 'none';
+      } else {
+        appIdInput.placeholder = 'App ID';
+        tokenInput.placeholder = 'API token (optional, for trading)';
+        oauthBtn.style.display = '';
+      }
+    });
+  });
+
   connectBtn.addEventListener('click', connect);
   disconnectBtn.addEventListener('click', disconnect);
 
