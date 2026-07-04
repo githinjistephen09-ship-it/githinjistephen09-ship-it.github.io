@@ -262,6 +262,7 @@
   // ---------------- State ----------------
   let ws = null;
   let authorized = false;
+  let authFailed = false;
   let symbols = {};          // symbol -> {display_name, market, sub}
   let ticks = {};            // symbol -> [{t, p}]
   let activeSymbol = null;
@@ -349,6 +350,7 @@
 
     ws.onopen = () => {
       statusPill.textContent = 'Connecting…';
+      authFailed = false;
       const token = tokenInput.value.trim();
       if (token) {
         send({ authorize: token });
@@ -399,7 +401,12 @@
 
     if (data.error) {
       if (data.msg_type === 'authorize') {
-        statusPill.textContent = 'Auth failed — check token';
+        authFailed = true;
+        statusPill.textContent = 'Auth failed: ' + data.error.message;
+        acctNote.textContent = 'Authorization failed — ' + data.error.message + '. Double-check the token was copied in full with no extra spaces, and that it hasn\'t expired.';
+        const banner = document.getElementById('errBanner');
+        banner.textContent = '⚠ Deriv auth error: ' + data.error.message;
+        banner.classList.add('show');
         loadSymbols();
       } else if (data.msg_type === 'buy' || data.msg_type === 'proposal') {
         logTrade(null, 'Error: ' + data.error.message, 0);
@@ -424,7 +431,7 @@
 
       case 'active_symbols':
         registerSymbols(data.active_symbols);
-        if (!authorized) statusPill.textContent = 'Connected · live (not authorized)';
+        if (!authorized && !authFailed) statusPill.textContent = 'Connected · live (not authorized)';
         break;
 
       case 'tick':
