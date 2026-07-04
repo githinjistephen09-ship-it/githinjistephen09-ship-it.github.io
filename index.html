@@ -48,6 +48,7 @@
     .conn-form{order:3;}
     .conn-form input{min-width:0;width:auto;}
     .conn-form .btn, .conn-form .btn.secondary{flex:1;min-width:100px;}
+    #oauthBtn{flex-basis:100%;}
   }
   .conn-form input::placeholder{color:var(--muted);}
   .btn{
@@ -129,6 +130,14 @@
     background:none;border:none;color:var(--muted);font-size:14px;padding:6px;line-height:1;
   }
   .token-eye:hover{color:var(--text);}
+  .acct-badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+    padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;
+  }
+  .acct-badge.demo{background:rgba(245,185,66,.15);color:var(--warn);border:1px solid var(--warn);}
+  .acct-badge.real{background:rgba(255,92,122,.15);color:var(--down);border:1px solid var(--down);}
+  .acct-loginid{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);}
+  .acct-header-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;}
   .req-lock{opacity:.45;pointer-events:none;}
   #errBanner{
     display:none;background:#3A1013;color:#FFB3BE;border-bottom:1px solid var(--down);
@@ -143,6 +152,7 @@
 <div class="topbar">
   <div class="topbar-row1">
     <div class="brand"><span class="dot" id="liveDot"></span>PULSE</div>
+    <span class="acct-badge" id="topAcctBadge" style="display:none;"></span>
     <span class="status-pill" id="statusPill">Disconnected</span>
   </div>
   <div class="conn-form">
@@ -152,7 +162,11 @@
       <button type="button" class="token-eye" id="tokenEyeBtn" aria-label="Show token">👁</button>
     </div>
     <button class="btn" id="connectBtn">Connect</button>
+    <button class="btn secondary" id="oauthBtn">Log in with Deriv</button>
     <button class="btn secondary" id="disconnectBtn" disabled>Disconnect</button>
+  </div>
+  <div class="conn-form" id="oauthPicker" style="display:none;width:100%;gap:8px;">
+    <span class="note" style="width:100%;">Logged in via Deriv. Choose an account:</span>
   </div>
 </div>
 
@@ -202,6 +216,10 @@
   <div class="tradepanel">
     <div class="section-title">Account</div>
     <div class="card">
+      <div class="acct-header-row">
+        <span class="acct-badge" id="acctBadge" style="display:none;"></span>
+        <span class="acct-loginid" id="acctLoginId"></span>
+      </div>
       <div class="balance-line">
         <span class="note">Balance</span>
         <span class="num" id="balanceVal">—</span>
@@ -283,12 +301,54 @@
   const $ = (id) => document.getElementById(id);
   const appIdInput = $('appIdInput');
   const tokenInput = $('tokenInput');
+  const oauthBtn = $('oauthBtn');
+  const oauthPicker = $('oauthPicker');
   const tokenEyeBtn = $('tokenEyeBtn');
   tokenEyeBtn.addEventListener('click', () => {
     const showing = tokenInput.type === 'text';
     tokenInput.type = showing ? 'password' : 'text';
     tokenEyeBtn.textContent = showing ? '👁' : '🙈';
   });
+
+  oauthBtn.addEventListener('click', () => {
+    const appId = (appIdInput.value || '1089').trim();
+    const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+    window.location.href = 'https://oauth.deriv.com/oauth2/authorize?app_id=' + encodeURIComponent(appId);
+  });
+
+  function parseOAuthReturn(){
+    const params = new URLSearchParams(window.location.search);
+    const accounts = [];
+    let i = 1;
+    while (params.has('acct' + i)) {
+      accounts.push({
+        acct: params.get('acct' + i),
+        token: params.get('token' + i),
+        currency: params.get('cur' + i)
+      });
+      i++;
+    }
+    if (accounts.length === 0) return;
+
+    // Clean the tokens out of the visible URL immediately.
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    oauthPicker.style.display = 'flex';
+    accounts.forEach(acc => {
+      const isDemo = /^VR/i.test(acc.acct);
+      const btn = document.createElement('button');
+      btn.className = 'btn secondary';
+      btn.style.flex = '1';
+      btn.style.minWidth = '110px';
+      btn.textContent = acc.acct + ' (' + (isDemo ? 'Demo' : 'Real') + ' · ' + acc.currency.toUpperCase() + ')';
+      btn.addEventListener('click', () => {
+        tokenInput.value = acc.token;
+        oauthPicker.style.display = 'none';
+        connect();
+      });
+      oauthPicker.appendChild(btn);
+    });
+  }
   const connectBtn = $('connectBtn');
   const disconnectBtn = $('disconnectBtn');
   const statusPill = $('statusPill');
@@ -305,6 +365,9 @@
   const signalBarFill = $('signalBarFill');
   const balanceVal = $('balanceVal');
   const acctNote = $('acctNote');
+  const acctBadge = $('acctBadge');
+  const acctLoginId = $('acctLoginId');
+  const topAcctBadge = $('topAcctBadge');
   const autoToggle = $('autoToggle');
   const stakeInput = $('stakeInput');
   const durInput = $('durInput');
@@ -375,6 +438,9 @@
       connectBtn.disabled = false;
       disconnectBtn.disabled = true;
       authorized = false;
+      acctBadge.style.display = 'none';
+      topAcctBadge.style.display = 'none';
+      acctLoginId.textContent = '';
     };
 
     ws.onerror = () => {
@@ -418,8 +484,16 @@
     switch (data.msg_type) {
       case 'authorize':
         authorized = true;
-        statusPill.textContent = 'Authorized · live · ' + data.authorize.loginid;
-        acctNote.textContent = 'Authorized as ' + data.authorize.loginid + '. Trading enabled on selected symbol.';
+        const loginid = data.authorize.loginid;
+        const isDemo = /^VR/i.test(loginid);
+        statusPill.textContent = 'Authorized · live · ' + loginid;
+        acctNote.textContent = 'Authorized as ' + loginid + '. Trading enabled on selected symbol.';
+        acctLoginId.textContent = loginid;
+        [acctBadge, topAcctBadge].forEach(el => {
+          el.textContent = isDemo ? 'Demo' : 'Real';
+          el.className = 'acct-badge ' + (isDemo ? 'demo' : 'real');
+          el.style.display = 'inline-flex';
+        });
         balanceVal.textContent = data.authorize.currency + ' ' + Number(data.authorize.balance).toFixed(2);
         send({ balance: 1, subscribe: 1 });
         loadSymbols();
@@ -733,6 +807,8 @@
   disconnectBtn.addEventListener('click', disconnect);
 
   window.addEventListener('beforeunload', () => { if (ws) ws.close(); });
+
+  parseOAuthReturn();
 })();
 </script>
 </body>
