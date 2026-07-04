@@ -33,14 +33,21 @@
     padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
     position:sticky;top:0;z-index:20;flex-wrap:wrap;
   }
-  .brand{display:flex;align-items:center;gap:9px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;letter-spacing:0.5px;}
-  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);transition:background .3s,box-shadow .3s;}
+  .topbar-row1{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;}
+  .brand{display:flex;align-items:center;gap:9px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;letter-spacing:0.5px;flex-shrink:0;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);transition:background .3s,box-shadow .3s;flex-shrink:0;}
   .brand .dot.live{background:var(--up);box-shadow:0 0 8px var(--up);animation:heartbeat 1.6s ease-in-out infinite;}
   @keyframes heartbeat{0%,100%{transform:scale(1);}50%{transform:scale(1.35);}}
-  .conn-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;}
+  .conn-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;width:100%;}
   .conn-form input{
     background:var(--panel-2);border:1px solid var(--line);color:var(--text);
-    padding:7px 10px;border-radius:6px;font-size:13px;width:150px;font-family:'IBM Plex Mono',monospace;
+    padding:7px 10px;border-radius:6px;font-size:13px;width:150px;flex:1;min-width:130px;font-family:'IBM Plex Mono',monospace;
+  }
+  @media (max-width:640px){
+    .topbar{gap:10px;}
+    .conn-form{order:3;}
+    .conn-form input{min-width:0;width:auto;}
+    .conn-form .btn, .conn-form .btn.secondary{flex:1;min-width:100px;}
   }
   .conn-form input::placeholder{color:var(--muted);}
   .btn{
@@ -115,20 +122,38 @@
   .log-row:last-child{border-bottom:none;}
   .log-row .win{color:var(--up);} .log-row .loss{color:var(--down);}
   .note{font-size:11.5px;color:var(--muted);line-height:1.6;}
+  .token-wrap{position:relative;flex:1;min-width:130px;display:flex;}
+  .token-wrap input{width:100%;padding-right:34px;}
+  .token-eye{
+    position:absolute;right:4px;top:50%;transform:translateY(-50%);
+    background:none;border:none;color:var(--muted);font-size:14px;padding:6px;line-height:1;
+  }
+  .token-eye:hover{color:var(--text);}
   .req-lock{opacity:.45;pointer-events:none;}
+  #errBanner{
+    display:none;background:#3A1013;color:#FFB3BE;border-bottom:1px solid var(--down);
+    padding:9px 16px;font-size:12.5px;font-family:'IBM Plex Mono',monospace;
+    position:sticky;top:0;z-index:30;
+  }
+  #errBanner.show{display:block;}
 </style>
 </head>
 <body>
-
+<div id="errBanner"></div>
 <div class="topbar">
-  <div class="brand"><span class="dot" id="liveDot"></span>PULSE</div>
+  <div class="topbar-row1">
+    <div class="brand"><span class="dot" id="liveDot"></span>PULSE</div>
+    <span class="status-pill" id="statusPill">Disconnected</span>
+  </div>
   <div class="conn-form">
-    <input id="appIdInput" type="text" placeholder="App ID (yours, from api.deriv.com)" value="1089">
-    <input id="tokenInput" type="password" placeholder="API token (optional, for trading)">
+    <input id="appIdInput" type="text" placeholder="App ID" value="1089">
+    <div class="token-wrap">
+      <input id="tokenInput" type="password" placeholder="API token (optional, for trading)">
+      <button type="button" class="token-eye" id="tokenEyeBtn" aria-label="Show token">👁</button>
+    </div>
     <button class="btn" id="connectBtn">Connect</button>
     <button class="btn secondary" id="disconnectBtn" disabled>Disconnect</button>
   </div>
-  <span class="status-pill" id="statusPill">Disconnected</span>
 </div>
 
 <div class="layout">
@@ -217,6 +242,23 @@
 (function(){
   "use strict";
 
+  // ---------------- Error visibility ----------------
+  window.addEventListener('error', (e) => {
+    const banner = document.getElementById('errBanner');
+    if (!banner) return;
+    const msg = e.message || 'Unknown error';
+    const loc = (e.filename ? e.filename.split('/').pop() : '') + (e.lineno ? ':' + e.lineno : '');
+    banner.textContent = '⚠ ' + msg + (loc && loc !== ':' ? ' (' + loc + ')' : '') +
+      (msg === 'Script error.' ? ' — likely blocked by a sandboxed preview; open this file directly in Safari/Chrome instead.' : '');
+    banner.classList.add('show');
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const banner = document.getElementById('errBanner');
+    if (!banner) return;
+    banner.textContent = '⚠ Promise error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+    banner.classList.add('show');
+  });
+
   // ---------------- State ----------------
   let ws = null;
   let authorized = false;
@@ -240,6 +282,12 @@
   const $ = (id) => document.getElementById(id);
   const appIdInput = $('appIdInput');
   const tokenInput = $('tokenInput');
+  const tokenEyeBtn = $('tokenEyeBtn');
+  tokenEyeBtn.addEventListener('click', () => {
+    const showing = tokenInput.type === 'text';
+    tokenInput.type = showing ? 'password' : 'text';
+    tokenEyeBtn.textContent = showing ? '👁' : '🙈';
+  });
   const connectBtn = $('connectBtn');
   const disconnectBtn = $('disconnectBtn');
   const statusPill = $('statusPill');
@@ -289,7 +337,15 @@
   function connect(){
     const appId = (appIdInput.value || '1089').trim();
     const url = 'wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(appId);
-    ws = new WebSocket(url);
+    let banner;
+    try {
+      ws = new WebSocket(url);
+    } catch (err) {
+      banner = document.getElementById('errBanner');
+      banner.textContent = '⚠ Could not open WebSocket: ' + err.message + '. If you are viewing this in an in-app preview, open the page in a full browser tab instead.';
+      banner.classList.add('show');
+      return;
+    }
 
     ws.onopen = () => {
       statusPill.textContent = 'Connecting…';
@@ -298,6 +354,7 @@
         send({ authorize: token });
       } else {
         loadSymbols();
+        acctNote.textContent = 'No API token entered — dashboard is read-only. Type your token in the field above, then hit Connect again to see balance and enable trading.';
       }
       liveDot.classList.add('live');
       connectBtn.disabled = true;
@@ -354,7 +411,7 @@
     switch (data.msg_type) {
       case 'authorize':
         authorized = true;
-        statusPill.textContent = 'Authorized: ' + data.authorize.loginid;
+        statusPill.textContent = 'Authorized · live · ' + data.authorize.loginid;
         acctNote.textContent = 'Authorized as ' + data.authorize.loginid + '. Trading enabled on selected symbol.';
         balanceVal.textContent = data.authorize.currency + ' ' + Number(data.authorize.balance).toFixed(2);
         send({ balance: 1, subscribe: 1 });
@@ -367,7 +424,7 @@
 
       case 'active_symbols':
         registerSymbols(data.active_symbols);
-        statusPill.textContent = 'Connected · live';
+        if (!authorized) statusPill.textContent = 'Connected · live (not authorized)';
         break;
 
       case 'tick':
