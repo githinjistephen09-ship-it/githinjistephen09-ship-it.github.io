@@ -676,38 +676,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size
   </div>
   <nav class="bnav">
     <button class="bntab" id="bnAnalysis" onclick="navTo('analysis')"><span class="bni">&#128202;</span>ANALYSIS</button>
-    <button class="bntab active" id="bnAI" 
+    <button class="bntab active" id="bnAI" onclick="navTo('ai')"><span class="bni">&#129302;</span>AI</button>
+  </nav>
+</div>
 
-// ============================================================
-(function() {
-  var search = window.location.search;
-  if (search && search.indexOf('token1=') >= 0) {
-    try {
-      var params = new URLSearchParams(search);
-      var t1 = params.get('token1');
-      var a1 = params.get('acct1');
-      if (t1) {
-        // Save token immediately before page does anything else
-        sessionStorage.setItem('oauth_token', t1);
-        sessionStorage.setItem('oauth_acct', a1 || '');
-        // Clean the URL so it looks normal
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    } catch(e) {}
-  }
-})();
 <script>
 // ============================================================
 var DERIV_APP_ID = '36544'; // numeric app_id for WebSocket connection
 
-// Global error display
-window.onerror = function(msg, src, line, col, err) {
-  var d = document.createElement('div');
-  d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ef4444;color:#fff;padding:12px;font-size:12px;z-index:99999;font-family:monospace;';
-  d.textContent = 'ERROR L' + line + ': ' + msg;
-  document.body && document.body.appendChild(d);
-  return false;
-};
 
 const IDX=[
   {s:'R_10',n:'V10',sub:'Volatility 10',v:10,dp:3,tickScale:1,conThresh:0.015,minTicks:60},
