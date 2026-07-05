@@ -131,6 +131,12 @@
   .acct-badge.real{background:rgba(255,92,122,.15);color:var(--down);border:1px solid var(--down);}
   .acct-loginid{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);}
   .acct-header-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;}
+  #acctSwitcher{display:flex;}
+  .acct-pill{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--muted);
+    padding:6px 10px;border-radius:20px;font-size:11.5px;font-family:'IBM Plex Mono',monospace;
+  }
+  .acct-pill.active{border-color:var(--up);color:var(--up);}
   .req-lock{opacity:.45;pointer-events:none;}
   .bot-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
   .bot-stat{display:flex;flex-direction:column;gap:4px;}
@@ -335,11 +341,20 @@
         <span class="num" id="balanceVal">—</span>
       </div>
       <div class="note" style="margin-top:6px;" id="acctNote">Add an API token above and connect to authorize.</div>
+      <div id="acctSwitcher" style="display:none;margin-top:10px;gap:6px;flex-wrap:wrap;"></div>
     </div>
 
     <div class="section-title">Bot</div>
     <div class="card" id="autoCard">
-      <div class="bot-stat-row">
+      <div class="row"><label>Contract type</label>
+        <select id="contractTypeInput" class="bot-select" style="width:auto;min-width:150px;">
+          <option value="RISEFALL">Rise/Fall</option>
+          <option value="EVENODD">Even/Odd (last digit)</option>
+          <option value="MATCHDIFF">Matches/Differs (digit)</option>
+          <option value="OVERUNDER">Over/Under (digit)</option>
+        </select>
+      </div>
+      <div class="bot-stat-row" style="margin-top:10px;">
         <div class="bot-stat"><label>Stake</label><input type="number" id="stakeInput" value="1" min="0.35" step="0.5"></div>
         <div class="bot-stat"><label>Duration</label><input type="number" id="durInput" value="5" min="1" max="10" step="1"></div>
         <div class="bot-stat"><label>D. Unit</label><div class="bot-stat-fixed">t</div></div>
@@ -353,6 +368,7 @@
         </div>
       </div>
       <div class="row" style="margin-top:12px;"><label>Signal threshold %</label><input type="number" id="threshInput" value="65" min="50" max="95" step="1"></div>
+      <div class="note" id="contractHint" style="margin-top:6px;">Rise/Fall trades on momentum direction (up/down).</div>
 
       <button type="button" class="btn secondary" id="riskMgtToggle" style="width:100%;margin-top:12px;">⚙ Risk Mgt</button>
       <div id="riskMgtPanel" style="display:none;margin-top:10px;">
@@ -565,6 +581,8 @@
     if (getApiMode() === 'new') connectNew(); else connectLegacy();
   }
 
+  let currentConnectedMode = null;
+
   function connectLegacy(){
     const appId = (appIdInput.value || '1089').trim();
     const url = 'wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(appId);
@@ -581,6 +599,7 @@
     ws.onopen = () => {
       statusPill.textContent = 'Connecting…';
       authFailed = false;
+      currentConnectedMode = 'legacy';
       const token = tokenInput.value.trim();
       if (token && /^pat_/i.test(token)) {
         const banner = document.getElementById('errBanner');
@@ -595,10 +614,9 @@
         send({ authorize: token });
       } else {
         loadSymbols();
-        acctNote.textContent = 'No API token entered — dashboard is read-only. Type your token in the field above, then hit Connect again to see balance and enable trading.';
+        statusPill.textContent = 'Browsing live prices — not logged in';
       }
       liveDot.classList.add('live');
-      openConnectModalBtn.style.display = 'none';
       disconnectBtn.style.display = '';
       closeModal();
       setInterval(() => send({ ping: 1 }), 30000);
@@ -612,11 +630,12 @@
     ws.onclose = () => {
       statusPill.textContent = 'Disconnected';
       liveDot.classList.remove('live');
-      openConnectModalBtn.style.display = '';
       disconnectBtn.style.display = 'none';
       authorized = false;
+      currentConnectedMode = null;
       acctBadge.style.display = 'none';
       topAcctBadge.style.display = 'none';
+      $('acctSwitcher').style.display = 'none';
       acctLoginId.textContent = '';
     };
 
@@ -638,9 +657,8 @@
     }
 
     ws.onopen = () => {
-      statusPill.textContent = 'Connected · public market data (New API)';
+      currentConnectedMode = 'new';
       liveDot.classList.add('live');
-      openConnectModalBtn.style.display = 'none';
       disconnectBtn.style.display = '';
       closeModal();
       loadSymbols();
@@ -651,10 +669,12 @@
         banner.textContent = '⚠ This doesn\'t look like a New Options API token (those start with "pat_"). You\'re in New API mode — get a PAT from your app on developers.deriv.com, or switch to Legacy mode to use this token.';
         banner.classList.add('show');
         acctNote.textContent = 'Live prices still work above — wrong token type for New API mode.';
+        statusPill.textContent = 'Browsing live prices — not logged in';
       } else if (token) {
         fetchNewApiAccount(token);
       } else {
         acctNote.textContent = 'New API public mode — live prices only, no token needed. Add a Personal Access Token above to see balance.';
+        statusPill.textContent = 'Browsing live prices — not logged in';
       }
     };
 
@@ -666,11 +686,12 @@
     ws.onclose = () => {
       statusPill.textContent = 'Disconnected';
       liveDot.classList.remove('live');
-      openConnectModalBtn.style.display = '';
       disconnectBtn.style.display = 'none';
       authorized = false;
+      currentConnectedMode = null;
       acctBadge.style.display = 'none';
       topAcctBadge.style.display = 'none';
+      $('acctSwitcher').style.display = 'none';
       acctLoginId.textContent = '';
     };
 
@@ -679,8 +700,12 @@
     };
   }
 
+  let newApiAccounts = [];
+  let newApiPat = '';
+
   async function fetchNewApiAccount(pat){
     const banner = document.getElementById('errBanner');
+    newApiPat = pat;
     try {
       const appId = (appIdInput.value || '').trim();
       const headers = { 'Authorization': 'Bearer ' + pat };
@@ -694,12 +719,35 @@
         await createNewApiDemoAccount(pat, appId);
         return;
       }
+      newApiAccounts = accounts;
+      renderAcctSwitcher(accounts);
       applyNewApiAccount(accounts[0]);
     } catch (err) {
       banner.textContent = '⚠ New API account fetch failed: ' + err.message + '. This endpoint is new — double-check the PAT was created with the right scope, and that the App ID field has your alphanumeric App ID from developers.deriv.com.';
       banner.classList.add('show');
       acctNote.textContent = 'Could not fetch account info from the New API — live prices still work above.';
     }
+  }
+
+  function renderAcctSwitcher(accounts){
+    const el = $('acctSwitcher');
+    if (accounts.length < 2) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    el.innerHTML = '';
+    accounts.forEach((acc, i) => {
+      const loginid = acc.login_id || acc.id || acc.account_id || ('Account ' + (i+1));
+      const isDemo = /demo/i.test(acc.type || acc.account_type || '') || /^VR/i.test(String(loginid));
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'acct-pill' + (i === 0 ? ' active' : '');
+      btn.textContent = (isDemo ? 'Demo' : 'Real') + ' · ' + loginid;
+      btn.addEventListener('click', () => {
+        el.querySelectorAll('.acct-pill').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        applyNewApiAccount(acc);
+      });
+      el.appendChild(btn);
+    });
   }
 
   function applyNewApiAccount(acc){
@@ -1001,6 +1049,31 @@
     return Math.sqrt(avg(a.map(x => (x-m)*(x-m))));
   }
 
+  // Deriv's "digit" contracts are decided by the last digit of the displayed quote
+  // (e.g. 1234.567 -> last digit 7). Extract that directly from the string form so
+  // it matches Deriv's own definition regardless of each symbol's decimal precision.
+  function lastDigitOf(price){
+    const s = String(price).replace(/[^0-9]/g, '');
+    return parseInt(s.charAt(s.length - 1), 10);
+  }
+
+  function computeDigitStats(sym, n){
+    const arr = (ticks[sym] || []).slice(-n);
+    if (arr.length < n) return null;
+    const digits = arr.map(t => lastDigitOf(t.p));
+    const counts = new Array(10).fill(0);
+    digits.forEach(d => counts[d]++);
+    const evenCount = digits.filter(d => d % 2 === 0).length;
+    const oddCount = digits.length - evenCount;
+    let mostFreqDigit = 0, leastFreqDigit = 0;
+    for (let d = 1; d < 10; d++){
+      if (counts[d] > counts[mostFreqDigit]) mostFreqDigit = d;
+      if (counts[d] < counts[leastFreqDigit]) leastFreqDigit = d;
+    }
+    const avgDigit = avg(digits);
+    return { digits, counts, evenCount, oddCount, mostFreqDigit, leastFreqDigit, avgDigit, lastDigit: digits[digits.length - 1] };
+  }
+
   function updateStats(sym){
     const arr = ticks[sym] || [];
     statTicks.textContent = arr.length;
@@ -1030,6 +1103,18 @@
   const riskMgtToggle = $('riskMgtToggle');
   const riskMgtPanel = $('riskMgtPanel');
   const speedInput = $('speedInput');
+  const contractTypeInput = $('contractTypeInput');
+  const contractHint = $('contractHint');
+  const contractHints = {
+    RISEFALL: 'Rise/Fall trades on momentum direction (up/down).',
+    EVENODD: 'Bets on whether the last digit will be even or odd, based on recent frequency skew.',
+    MATCHDIFF: 'Bets the next last-digit will differ from the most frequent recent digit (reversion).',
+    OVERUNDER: 'Bets Over/Under a digit threshold based on the recent average last-digit.'
+  };
+  contractTypeInput.addEventListener('change', () => {
+    contractHint.textContent = contractHints[contractTypeInput.value] || '';
+    signalStreak = 0; lastSignalDirection = null;
+  });
   let signalStreak = 0;
   let lastSignalDirection = null;
 
@@ -1075,21 +1160,52 @@
     if (sessionPL <= -Math.abs(lossLimit)) { haltTrading('Daily loss limit reached.'); return; }
     if (sessionPL >= Math.abs(profitTarget)) { haltTrading('Daily profit target reached.'); return; }
 
-    const sig = computeSignal(sym);
-    if (!sig) return;
+    const contractGroup = contractTypeInput.value;
     const threshold = parseFloat(threshInput.value) || 65;
-    if (sig.strength < threshold) { signalStreak = 0; lastSignalDirection = null; return; }
-
-    if (sig.direction === lastSignalDirection) signalStreak++; else { signalStreak = 1; lastSignalDirection = sig.direction; }
     const speedTicks = parseInt(speedInput.value) || 1;
+    const duration = parseInt(durInput.value) || 5;
+    let contractType, barrier = null, strength = 0, direction = null;
+
+    if (contractGroup === 'RISEFALL') {
+      const sig = computeSignal(sym);
+      if (!sig) return;
+      strength = sig.strength;
+      direction = sig.direction;
+      contractType = sig.direction === 'UP' ? 'CALL' : 'PUT';
+    } else {
+      // Digit contracts: judge skew away from the uniform 10%-per-digit / 50%-per-parity
+      // baseline over the last 20 ticks. This is a simple frequency heuristic, not a
+      // predictive edge — synthetic-index digits are designed to be close to uniform.
+      const stats = computeDigitStats(sym, 20);
+      if (!stats) return;
+
+      if (contractGroup === 'EVENODD') {
+        const evenPct = (stats.evenCount / stats.digits.length) * 100;
+        strength = Math.abs(evenPct - 50) * 2;
+        direction = evenPct > 50 ? 'EVEN' : 'ODD';
+        contractType = direction === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
+      } else if (contractGroup === 'MATCHDIFF') {
+        // Bet DIGITDIFF against the most frequent recent digit (expect reversion).
+        const topPct = (stats.counts[stats.mostFreqDigit] / stats.digits.length) * 100;
+        strength = Math.max(0, (topPct - 10) * 5);
+        direction = 'DIFF-' + stats.mostFreqDigit;
+        contractType = 'DIGITDIFF';
+        barrier = String(stats.mostFreqDigit);
+      } else if (contractGroup === 'OVERUNDER') {
+        strength = Math.min(100, Math.abs(stats.avgDigit - 4.5) * 40);
+        direction = stats.avgDigit > 4.5 ? 'OVER' : 'UNDER';
+        contractType = direction === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER';
+        barrier = direction === 'OVER' ? '3' : '6';
+      }
+    }
+
+    if (!contractType || strength < threshold) { signalStreak = 0; lastSignalDirection = null; return; }
+    if (direction === lastSignalDirection) signalStreak++; else { signalStreak = 1; lastSignalDirection = direction; }
     if (signalStreak < speedTicks) return;
     signalStreak = 0;
-
-    const contractType = sig.direction === 'UP' ? 'CALL' : 'PUT';
-    const duration = parseInt(durInput.value) || 5;
     pendingContract = true;
 
-    send({
+    const payload = {
       proposal: 1,
       subscribe: 1,
       amount: Number(currentStake.toFixed(2)),
@@ -1099,7 +1215,9 @@
       duration: duration,
       duration_unit: 't',
       symbol: sym
-    });
+    };
+    if (barrier !== null) payload.barrier = barrier;
+    send(payload);
   }
 
   function haltTrading(msg){
@@ -1157,7 +1275,7 @@
 
   // ---------------- Wire up ----------------
   let lastLegacyAppId = '1089';
-  let lastNewAppId = '';
+  let lastNewAppId = '33JMvHGHnwUEW0sIJlVbU'; // permanent default App ID for New API mode
   let lastLegacyToken = '';
   let lastNewToken = '';
   document.querySelectorAll('input[name="apiMode"]').forEach(radio => {
@@ -1184,12 +1302,47 @@
     });
   });
 
-  connectBtn.addEventListener('click', connect);
+  connectBtn.addEventListener('click', () => {
+    const mode = getApiMode();
+    const alreadyOpen = ws && ws.readyState === 1 && currentConnectedMode === mode;
+
+    if (!alreadyOpen) { connect(); return; }
+
+    const token = tokenInput.value.trim();
+    if (!token) { closeModal(); return; }
+
+    if (mode === 'legacy') {
+      if (/^pat_/i.test(token)) {
+        const banner = document.getElementById('errBanner');
+        banner.textContent = '⚠ This looks like a New Options API token, but Legacy mode is selected. Switch modes or use a token from app.deriv.com/account/api-token.';
+        banner.classList.add('show');
+        return;
+      }
+      authFailed = false;
+      send({ authorize: token });
+      closeModal();
+    } else {
+      if (!/^pat_/i.test(token)) {
+        const banner = document.getElementById('errBanner');
+        banner.textContent = '⚠ This doesn\'t look like a New Options API token (those start with "pat_").';
+        banner.classList.add('show');
+        return;
+      }
+      fetchNewApiAccount(token);
+      closeModal();
+    }
+  });
   disconnectBtn.addEventListener('click', disconnect);
 
   window.addEventListener('beforeunload', () => { if (ws) ws.close(); });
 
   parseOAuthReturn();
+
+  // Markets shouldn't be gated behind login — open a guest (unauthorized) market-data
+  // feed immediately on page load, using whatever mode/App ID is currently selected.
+  // Logging in later (via the modal) authorizes this same connection in place rather
+  // than opening a second one.
+  connect();
 })();
 </script>
 </body>
