@@ -209,6 +209,37 @@
   .modal-divider::before{left:0;} .modal-divider::after{right:0;}
   .connect-option.disabled{opacity:.55;}
   .opt-badge.soon{background:var(--warn);color:#2A1B00;}
+
+  /* ---------- Page nav ---------- */
+  .page{display:none;}
+  .page.active{display:block;}
+  .markets-layout{display:grid;grid-template-columns:260px 1fr;gap:1px;background:var(--line);min-height:calc(100vh - 56px - 60px);}
+  @media (max-width:980px){.markets-layout{grid-template-columns:1fr;}}
+  .bottomnav{
+    position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--panel);
+    border-top:1px solid var(--line);z-index:50;padding-bottom:env(safe-area-inset-bottom);
+  }
+  .bottomnav button{
+    flex:1;background:none;border:none;color:var(--muted);padding:10px 4px 8px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;
+  }
+  .bottomnav button .nav-icon{font-size:18px;}
+  .bottomnav button.active{color:var(--up);}
+  body{padding-bottom:64px;}
+
+  /* ---------- Analysis page ---------- */
+  .analysis-page{padding:16px;max-width:800px;margin:0 auto;}
+  .analysis-intro{color:var(--muted);font-size:12.5px;line-height:1.6;margin-bottom:16px;}
+  .analysis-table{width:100%;border-collapse:collapse;}
+  .analysis-table th{
+    text-align:left;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
+    padding:8px 10px;border-bottom:1px solid var(--line);
+  }
+  .analysis-table td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;}
+  .analysis-table td.sym{font-weight:600;}
+  .analysis-table td.metric{font-family:'IBM Plex Mono',monospace;text-align:right;}
+  .analysis-table tr:last-child td{border-bottom:none;}
+  .analysis-empty{color:var(--muted);font-size:12.5px;padding:20px;text-align:center;}
 </style>
 </head>
 <body>
@@ -286,7 +317,8 @@
   </div>
 </div>
 
-<div class="layout">
+<div class="page active" id="pageMarkets">
+<div class="markets-layout">
 
   <!-- SYMBOL LIST -->
   <div class="symlist">
@@ -328,7 +360,25 @@
     </div>
   </div>
 
-  <!-- TRADE PANEL -->
+</div>
+</div>
+
+<div class="page" id="pageAnalysis">
+  <div class="analysis-page">
+    <div class="main-title" style="font-size:20px;margin-bottom:6px;">Market Analysis</div>
+    <div class="analysis-intro">
+      Ranks every synthetic index live by which one currently shows the strongest signal per contract type — e.g. which market's last-digit distribution most favors Even, or which shows the strongest recent momentum for Rise/Fall. Recomputed every few seconds from live ticks. These are frequency/momentum heuristics, not predictions — Deriv's synthetic indices are designed to be close to statistically fair.
+    </div>
+    <table class="analysis-table" id="analysisTable">
+      <thead><tr><th>Contract</th><th>Best market</th><th style="text-align:right;">Metric</th></tr></thead>
+      <tbody id="analysisTableBody">
+        <tr><td colspan="3" class="analysis-empty">Waiting for enough live ticks across markets…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="page" id="pageTrade">
   <div class="tradepanel">
     <div class="section-title">Account</div>
     <div class="card">
@@ -348,10 +398,14 @@
     <div class="card" id="autoCard">
       <div class="row"><label>Contract type</label>
         <select id="contractTypeInput" class="bot-select" style="width:auto;min-width:150px;">
-          <option value="RISEFALL">Rise/Fall</option>
-          <option value="EVENODD">Even/Odd (last digit)</option>
-          <option value="MATCHDIFF">Matches/Differs (digit)</option>
-          <option value="OVERUNDER">Over/Under (digit)</option>
+          <option value="RISEUP">Rise (Up)</option>
+          <option value="RISEDOWN">Fall (Down)</option>
+          <option value="EVEN">Even</option>
+          <option value="ODD">Odd</option>
+          <option value="MATCH">Matches</option>
+          <option value="DIFFER">Differs</option>
+          <option value="OVER">Over</option>
+          <option value="UNDER">Under</option>
         </select>
       </div>
       <div class="bot-stat-row" style="margin-top:10px;">
@@ -368,6 +422,7 @@
         </div>
       </div>
       <div class="row" style="margin-top:12px;"><label>Signal threshold %</label><input type="number" id="threshInput" value="65" min="50" max="95" step="1"></div>
+      <div class="note" id="pickedMarketNote" style="margin-top:6px;">Waiting for analysis data…</div>
       <div class="note" id="contractHint" style="margin-top:6px;">Rise/Fall trades on momentum direction (up/down).</div>
 
       <button type="button" class="btn secondary" id="riskMgtToggle" style="width:100%;margin-top:12px;">⚙ Risk Mgt</button>
@@ -395,6 +450,13 @@
   </div>
 
 </div>
+
+<nav class="bottomnav">
+  <button type="button" class="nav-btn active" data-page="pageMarkets"><span class="nav-icon">📈</span>Markets</button>
+  <button type="button" class="nav-btn" data-page="pageAnalysis"><span class="nav-icon">🔬</span>Analysis</button>
+  <button type="button" class="nav-btn" data-page="pageTrade"><span class="nav-icon">🤖</span>Trade</button>
+  <button type="button" class="nav-btn" id="navLoginBtn"><span class="nav-icon">🔑</span>Login</button>
+</nav>
 
 <script>
 (function(){
@@ -940,8 +1002,8 @@
       livePrice.textContent = tick.quote;
       updateStats(sym);
       drawMainChart();
-      maybeAutoTrade(sym);
     }
+    checkBotOpportunity();
   }
 
   function updateCandle(sym, epoch, price){
@@ -1074,6 +1136,76 @@
     return { digits, counts, evenCount, oddCount, mostFreqDigit, leastFreqDigit, avgDigit, lastDigit: digits[digits.length - 1] };
   }
 
+  // ---------------- Cross-market analysis engine ----------------
+  // Ranks every currently-subscribed symbol per contract category and keeps the
+  // winner in `analysisResults`, which both the Analysis page and the Trade bot read from.
+  let analysisResults = {};
+  const CONTRACT_LABELS = {
+    RISEUP:  'Rise (CALL)', RISEDOWN: 'Fall (PUT)',
+    EVEN: 'Even', ODD: 'Odd', MATCH: 'Matches', DIFFER: 'Differs',
+    OVER: 'Over', UNDER: 'Under'
+  };
+
+  function computeAnalysisAll(){
+    const results = {};
+    Object.keys(symbols).forEach(sym => {
+      const sig = computeSignal(sym);
+      const dstats = computeDigitStats(sym, 20);
+
+      if (sig) {
+        const upKey = 'RISEUP', downKey = 'RISEDOWN';
+        if (sig.direction === 'UP' && (!results[upKey] || sig.strength > results[upKey].value)) {
+          results[upKey] = { symbol: sym, value: sig.strength };
+        }
+        if (sig.direction === 'DOWN' && (!results[downKey] || sig.strength > results[downKey].value)) {
+          results[downKey] = { symbol: sym, value: sig.strength };
+        }
+      }
+
+      if (dstats) {
+        const evenPct = (dstats.evenCount / dstats.digits.length) * 100;
+        const oddPct = 100 - evenPct;
+        if (!results.EVEN || evenPct > results.EVEN.value) results.EVEN = { symbol: sym, value: evenPct };
+        if (!results.ODD || oddPct > results.ODD.value) results.ODD = { symbol: sym, value: oddPct };
+
+        const topFreqPct = (dstats.counts[dstats.mostFreqDigit] / dstats.digits.length) * 100;
+        const lowFreqPct = (dstats.counts[dstats.leastFreqDigit] / dstats.digits.length) * 100;
+        // Match: bet the digit that's been most frequent will repeat.
+        if (!results.MATCH || topFreqPct > results.MATCH.value) {
+          results.MATCH = { symbol: sym, value: topFreqPct, digit: dstats.mostFreqDigit };
+        }
+        // Differ: bet against whichever digit has dominated most strongly (reversion).
+        if (!results.DIFFER || topFreqPct > results.DIFFER.value) {
+          results.DIFFER = { symbol: sym, value: topFreqPct, digit: dstats.mostFreqDigit };
+        }
+
+        const overSkew = Math.max(0, dstats.avgDigit - 4.5) * (200/9);
+        const underSkew = Math.max(0, 4.5 - dstats.avgDigit) * (200/9);
+        if (!results.OVER || overSkew > results.OVER.value) results.OVER = { symbol: sym, value: overSkew, digit: 3 };
+        if (!results.UNDER || underSkew > results.UNDER.value) results.UNDER = { symbol: sym, value: underSkew, digit: 6 };
+      }
+    });
+    analysisResults = results;
+    renderAnalysisTable();
+    updatePickedMarketNote();
+  }
+
+  function renderAnalysisTable(){
+    const body = $('analysisTableBody');
+    const keys = Object.keys(CONTRACT_LABELS);
+    const rows = keys.filter(k => analysisResults[k]);
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="3" class="analysis-empty">Waiting for enough live ticks across markets…</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(k => {
+      const r = analysisResults[k];
+      const name = symbols[r.symbol] ? symbols[r.symbol].display_name : r.symbol;
+      const digitPart = (r.digit !== undefined) ? ' (digit ' + r.digit + ')' : '';
+      return '<tr><td>' + CONTRACT_LABELS[k] + '</td><td class="sym">' + name + digitPart + '</td><td class="metric">' + r.value.toFixed(1) + '%</td></tr>';
+    }).join('');
+  }
+
   function updateStats(sym){
     const arr = ticks[sym] || [];
     statTicks.textContent = arr.length;
@@ -1106,17 +1238,35 @@
   const contractTypeInput = $('contractTypeInput');
   const contractHint = $('contractHint');
   const contractHints = {
-    RISEFALL: 'Rise/Fall trades on momentum direction (up/down).',
-    EVENODD: 'Bets on whether the last digit will be even or odd, based on recent frequency skew.',
-    MATCHDIFF: 'Bets the next last-digit will differ from the most frequent recent digit (reversion).',
-    OVERUNDER: 'Bets Over/Under a digit threshold based on the recent average last-digit.'
+    RISEUP: 'Trades CALL (Rise) on whichever market currently shows the strongest upward momentum.',
+    RISEDOWN: 'Trades PUT (Fall) on whichever market currently shows the strongest downward momentum.',
+    EVEN: 'Trades Even on whichever market\u2019s last digit currently skews most toward even.',
+    ODD: 'Trades Odd on whichever market\u2019s last digit currently skews most toward odd.',
+    MATCH: 'Trades Matches on whichever market has the most dominant recent digit, betting it repeats.',
+    DIFFER: 'Trades Differs against whichever market\u2019s most dominant recent digit (reversion bet).',
+    OVER: 'Trades Over on whichever market\u2019s recent digits skew highest.',
+    UNDER: 'Trades Under on whichever market\u2019s recent digits skew lowest.'
+  };
+  const CONTRACT_TYPE_MAP = {
+    RISEUP: 'CALL', RISEDOWN: 'PUT', EVEN: 'DIGITEVEN', ODD: 'DIGITODD',
+    MATCH: 'DIGITMATCH', DIFFER: 'DIGITDIFF', OVER: 'DIGITOVER', UNDER: 'DIGITUNDER'
   };
   contractTypeInput.addEventListener('change', () => {
     contractHint.textContent = contractHints[contractTypeInput.value] || '';
     signalStreak = 0; lastSignalDirection = null;
+    updatePickedMarketNote();
   });
   let signalStreak = 0;
   let lastSignalDirection = null;
+
+  function updatePickedMarketNote(){
+    const el = $('pickedMarketNote');
+    const cat = contractTypeInput.value;
+    const r = analysisResults[cat];
+    if (!r) { el.textContent = 'Waiting for analysis data on ' + CONTRACT_LABELS[cat] + '…'; return; }
+    const name = symbols[r.symbol] ? symbols[r.symbol].display_name : r.symbol;
+    el.textContent = 'Currently picking: ' + name + ' (' + r.value.toFixed(1) + '%)' + (autoTradeOn ? ' — bot is live' : '');
+  }
 
   riskMgtToggle.addEventListener('click', () => {
     const showing = riskMgtPanel.style.display !== 'none';
@@ -1127,7 +1277,6 @@
   runBtn.addEventListener('click', () => {
     if (getApiMode() === 'new') { flashRiskNote('Auto-trade isn\'t wired up for New API mode yet — switch to Legacy mode to trade.'); return; }
     if (!authorized) { flashRiskNote('Connect with an API token to enable the bot.'); return; }
-    if (!activeSymbol) { flashRiskNote('Select a symbol first.'); return; }
     autoTradeOn = !autoTradeOn;
     runBtn.classList.toggle('running', autoTradeOn);
     runBtn.textContent = autoTradeOn ? '■ Stop' : '▶ Run';
@@ -1137,10 +1286,11 @@
       signalStreak = 0;
       lastSignalDirection = null;
       currentStake = parseFloat(stakeInput.value) || 1;
-      botStatusNote.textContent = 'Bot running on ' + (symbols[activeSymbol] ? symbols[activeSymbol].display_name : activeSymbol);
+      botStatusNote.textContent = 'Bot running — ' + CONTRACT_LABELS[contractTypeInput.value];
     } else {
       botStatusNote.textContent = 'Bot is not running…';
     }
+    updatePickedMarketNote();
   });
 
   function flashRiskNote(msg){
@@ -1151,58 +1301,32 @@
     setTimeout(() => { note.textContent = original; note.style.color = ''; }, 3000);
   }
 
-  function maybeAutoTrade(sym){
+  // Called on every incoming tick for every symbol (not just the one open in Markets),
+  // since the bot's target symbol is chosen dynamically from live analysis rather than
+  // pinned to whichever chart happens to be open.
+  function checkBotOpportunity(){
     if (!autoTradeOn || !authorized || pendingContract || tradingHalted) return;
-    if (sym !== activeSymbol) return;
 
     const lossLimit = parseFloat(lossLimitInput.value) || 0;
     const profitTarget = parseFloat(profitTargetInput.value) || 0;
     if (sessionPL <= -Math.abs(lossLimit)) { haltTrading('Daily loss limit reached.'); return; }
     if (sessionPL >= Math.abs(profitTarget)) { haltTrading('Daily profit target reached.'); return; }
 
-    const contractGroup = contractTypeInput.value;
+    const category = contractTypeInput.value;
+    const pick = analysisResults[category];
+    if (!pick) return;
+
     const threshold = parseFloat(threshInput.value) || 65;
+    if (pick.value < threshold) { signalStreak = 0; lastSignalDirection = null; return; }
+
+    const streakKey = category + ':' + pick.symbol;
+    if (streakKey === lastSignalDirection) signalStreak++; else { signalStreak = 1; lastSignalDirection = streakKey; }
     const speedTicks = parseInt(speedInput.value) || 1;
-    const duration = parseInt(durInput.value) || 5;
-    let contractType, barrier = null, strength = 0, direction = null;
-
-    if (contractGroup === 'RISEFALL') {
-      const sig = computeSignal(sym);
-      if (!sig) return;
-      strength = sig.strength;
-      direction = sig.direction;
-      contractType = sig.direction === 'UP' ? 'CALL' : 'PUT';
-    } else {
-      // Digit contracts: judge skew away from the uniform 10%-per-digit / 50%-per-parity
-      // baseline over the last 20 ticks. This is a simple frequency heuristic, not a
-      // predictive edge — synthetic-index digits are designed to be close to uniform.
-      const stats = computeDigitStats(sym, 20);
-      if (!stats) return;
-
-      if (contractGroup === 'EVENODD') {
-        const evenPct = (stats.evenCount / stats.digits.length) * 100;
-        strength = Math.abs(evenPct - 50) * 2;
-        direction = evenPct > 50 ? 'EVEN' : 'ODD';
-        contractType = direction === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
-      } else if (contractGroup === 'MATCHDIFF') {
-        // Bet DIGITDIFF against the most frequent recent digit (expect reversion).
-        const topPct = (stats.counts[stats.mostFreqDigit] / stats.digits.length) * 100;
-        strength = Math.max(0, (topPct - 10) * 5);
-        direction = 'DIFF-' + stats.mostFreqDigit;
-        contractType = 'DIGITDIFF';
-        barrier = String(stats.mostFreqDigit);
-      } else if (contractGroup === 'OVERUNDER') {
-        strength = Math.min(100, Math.abs(stats.avgDigit - 4.5) * 40);
-        direction = stats.avgDigit > 4.5 ? 'OVER' : 'UNDER';
-        contractType = direction === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER';
-        barrier = direction === 'OVER' ? '3' : '6';
-      }
-    }
-
-    if (!contractType || strength < threshold) { signalStreak = 0; lastSignalDirection = null; return; }
-    if (direction === lastSignalDirection) signalStreak++; else { signalStreak = 1; lastSignalDirection = direction; }
     if (signalStreak < speedTicks) return;
     signalStreak = 0;
+
+    const duration = parseInt(durInput.value) || 5;
+    const contractType = CONTRACT_TYPE_MAP[category];
     pendingContract = true;
 
     const payload = {
@@ -1211,12 +1335,12 @@
       amount: Number(currentStake.toFixed(2)),
       basis: 'stake',
       contract_type: contractType,
-      currency: (symbols[sym] && symbols[sym].currency) || 'USD',
+      currency: (symbols[pick.symbol] && symbols[pick.symbol].currency) || 'USD',
       duration: duration,
       duration_unit: 't',
-      symbol: sym
+      symbol: pick.symbol
     };
-    if (barrier !== null) payload.barrier = barrier;
+    if (pick.digit !== undefined) payload.barrier = String(pick.digit);
     send(payload);
   }
 
@@ -1334,6 +1458,21 @@
   });
   disconnectBtn.addEventListener('click', disconnect);
 
+  // ---------------- Page navigation ----------------
+  document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(btn.dataset.page).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+  $('navLoginBtn').addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    $('navLoginBtn').classList.add('active');
+    openModal();
+  });
+
   window.addEventListener('beforeunload', () => { if (ws) ws.close(); });
 
   parseOAuthReturn();
@@ -1343,6 +1482,10 @@
   // Logging in later (via the modal) authorizes this same connection in place rather
   // than opening a second one.
   connect();
+
+  // Keep the Analysis page (and the bot's dynamic symbol picks) fresh continuously,
+  // regardless of which page is currently in view.
+  setInterval(computeAnalysisAll, 2500);
 })();
 </script>
 </body>
