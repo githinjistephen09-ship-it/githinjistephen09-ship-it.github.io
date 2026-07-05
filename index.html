@@ -620,9 +620,11 @@
   const ctx = mainChart.getContext('2d');
 
   // ---------------- WebSocket helpers ----------------
-  function send(payload){
-    if (!ws || ws.readyState !== 1) return;
-    ws.send(JSON.stringify(payload));
+  function send(payload, forceTradeSocket){
+    const useTradeSocket = forceTradeSocket || (getApiMode() === 'new' && tradeWsReady && ('proposal' in payload || 'buy' in payload || 'proposal_open_contract' in payload));
+    const target = useTradeSocket ? tradeWs : ws;
+    if (!target || target.readyState !== 1) return;
+    target.send(JSON.stringify(payload));
   }
 
   function sendAndWait(payload){
@@ -812,12 +814,18 @@
     });
   }
 
+  let currentNewApiAccount = null;
+  let tradeWs = null;
+  let tradeWsReady = false;
+
   function applyNewApiAccount(acc){
     authorized = true;
+    currentNewApiAccount = acc;
+    tradeWsReady = false;
     const loginid = acc.login_id || acc.id || acc.account_id || 'Unknown account';
     const isDemo = /demo/i.test(acc.type || acc.account_type || '') || /^VR/i.test(String(loginid));
     statusPill.textContent = 'Authorized (New API) · ' + loginid;
-    acctNote.textContent = 'Authorized as ' + loginid + ' via the New Options API. Auto-trade for this mode is experimental and disabled for now — switch to Legacy mode to trade.';
+    acctNote.textContent = 'Authorized as ' + loginid + ' via the New Options API. Setting up trading connection…';
     acctLoginId.textContent = loginid;
     [acctBadge, topAcctBadge].forEach(el => {
       el.textContent = isDemo ? 'Demo' : 'Real';
@@ -828,6 +836,50 @@
       balanceVal.textContent = (acc.currency || '') + ' ' + Number(acc.balance).toFixed(2);
     } else {
       balanceVal.textContent = 'Not returned by this endpoint';
+    }
+    openNewApiTradingSocket(acc);
+  }
+
+  // Deriv's new platform requires a short-lived OTP-authenticated WebSocket for
+  // trading actions, separate from the public ticks feed. This handshake is the
+  // least-documented part of the new API — treating it as experimental and
+  // surfacing the exact server response if it doesn't match what's expected.
+  async function openNewApiTradingSocket(acc){
+    const banner = document.getElementById('errBanner');
+    const accountId = acc.id || acc.account_id || acc.login_id;
+    if (!accountId) {
+      banner.textContent = '⚠ Could not determine an account ID to request a trading session for.';
+      banner.classList.add('show');
+      return;
+    }
+    try {
+      const appId = (appIdInput.value || '').trim();
+      const headers = { 'Authorization': 'Bearer ' + newApiPat, 'Content-Type': 'application/json' };
+      if (appId) headers['Deriv-App-ID'] = appId;
+      const res = await fetch('https://api.derivws.com/trading/v1/options/accounts/' + encodeURIComponent(accountId) + '/otp', {
+        method: 'POST', headers
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' requesting trading session (OTP)');
+      const data = await res.json();
+      const wsUrl = data.ws_url || data.url || data.websocket_url || (data.otp ? ('wss://api.derivws.com/trading/v1/options/ws/authenticated?otp=' + encodeURIComponent(data.otp)) : null);
+      if (!wsUrl) throw new Error('OTP response didn\'t include a recognizable WebSocket URL: ' + JSON.stringify(data).slice(0, 150));
+
+      tradeWs = new WebSocket(wsUrl);
+      tradeWs.onopen = () => {
+        tradeWsReady = true;
+        acctNote.textContent = 'Authorized as ' + (acc.login_id || acc.id) + ' via the New Options API. Trading connection is live.';
+        send({ balance: 1, subscribe: 1 }, true);
+      };
+      tradeWs.onmessage = (evt) => handleMessage(JSON.parse(evt.data));
+      tradeWs.onerror = () => {
+        banner.textContent = '⚠ Trading WebSocket error for New API mode. Trading may not be available yet on this account/app.';
+        banner.classList.add('show');
+      };
+      tradeWs.onclose = () => { tradeWsReady = false; };
+    } catch (err) {
+      banner.textContent = '⚠ Could not set up New API trading session: ' + err.message + '. This is the most experimental part of the integration — balance display above still works regardless.';
+      banner.classList.add('show');
+      acctNote.textContent = 'Authorized — balance shown above, but auto-trade setup failed for New API mode. Legacy mode remains fully working for trading.';
     }
   }
 
@@ -856,6 +908,7 @@
 
   function disconnect(){
     if (ws) ws.close();
+    if (tradeWs) { tradeWs.close(); tradeWs = null; tradeWsReady = false; }
   }
 
   function loadSymbols(){
@@ -1275,8 +1328,8 @@
   });
 
   runBtn.addEventListener('click', () => {
-    if (getApiMode() === 'new') { flashRiskNote('Auto-trade isn\'t wired up for New API mode yet — switch to Legacy mode to trade.'); return; }
     if (!authorized) { flashRiskNote('Connect with an API token to enable the bot.'); return; }
+    if (getApiMode() === 'new' && !tradeWsReady) { flashRiskNote('Trading session for New API mode isn\'t ready yet — check the banner above for details, or use Legacy mode.'); return; }
     autoTradeOn = !autoTradeOn;
     runBtn.classList.toggle('running', autoTradeOn);
     runBtn.textContent = autoTradeOn ? '■ Stop' : '▶ Run';
