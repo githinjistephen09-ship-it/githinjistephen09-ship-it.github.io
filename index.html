@@ -861,7 +861,7 @@
       });
       if (!res.ok) throw new Error('HTTP ' + res.status + ' requesting trading session (OTP)');
       const data = await res.json();
-      const wsUrl = data.ws_url || data.url || data.websocket_url || (data.otp ? ('wss://api.derivws.com/trading/v1/options/ws/authenticated?otp=' + encodeURIComponent(data.otp)) : null);
+      const wsUrl = (data.data && data.data.url) || data.ws_url || data.url || data.websocket_url || (data.otp ? ('wss://api.derivws.com/trading/v1/options/ws/authenticated?otp=' + encodeURIComponent(data.otp)) : null);
       if (!wsUrl) throw new Error('OTP response didn\'t include a recognizable WebSocket URL: ' + JSON.stringify(data).slice(0, 150));
 
       tradeWs = new WebSocket(wsUrl);
