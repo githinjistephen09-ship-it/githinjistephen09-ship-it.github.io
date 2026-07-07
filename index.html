@@ -293,20 +293,20 @@
 
     <div class="modal-divider">Other ways to connect</div>
 
-    <button type="button" class="connect-option disabled" id="optLogin">
+    <button type="button" class="connect-option" id="optLogin">
       <div class="opt-icon blue">⇄</div>
       <div class="opt-text">
-        <div class="opt-title">Login <span class="opt-badge soon">Needs a backend</span></div>
-        <div class="opt-desc">OAuth login — requires a small server component we haven't built yet</div>
+        <div class="opt-title">Login <span class="opt-badge">OAuth</span></div>
+        <div class="opt-desc">Sign in with your Deriv account — no token to copy/paste</div>
       </div>
       <div class="opt-chevron">›</div>
     </button>
 
-    <button type="button" class="connect-option disabled" id="optSignup">
+    <button type="button" class="connect-option" id="optSignup">
       <div class="opt-icon green">＋</div>
       <div class="opt-text">
-        <div class="opt-title">Sign Up <span class="opt-badge soon">Needs a backend</span></div>
-        <div class="opt-desc">Create a Deriv account via OAuth — same backend requirement as Login</div>
+        <div class="opt-title">Sign Up</div>
+        <div class="opt-desc">New to Deriv? Create an account, then connect automatically</div>
       </div>
       <div class="opt-chevron">↗</div>
     </button>
@@ -529,27 +529,86 @@
   modalCloseBtn.addEventListener('click', closeModal);
   connectModalOverlay.addEventListener('click', (e) => { if (e.target === connectModalOverlay) closeModal(); });
 
-  function goToDerivOAuth(){
-    const appId = (appIdInput.value || '1089').trim();
-    window.location.href = 'https://oauth.deriv.com/oauth2/authorize?app_id=' + encodeURIComponent(appId);
+  const OAUTH_WORKER_BASE = 'https://ancient-truth-55fe.waigithinji06.workers.dev';
+  const OAUTH_REDIRECT_URI = OAUTH_WORKER_BASE + '/callback';
+
+  // PKCE helpers — no server or browser storage needed. The code_verifier is
+  // encoded directly into the OAuth 'state' parameter, which Deriv echoes back
+  // unchanged after the redirect, so it survives the round-trip on its own.
+  function randomVerifier(){
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  async function sha256base64url(str){
+    const data = new TextEncoder().encode(str);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
-  function explainBackendNeeded(){
-    const banner = document.getElementById('errBanner');
-    banner.textContent = 'ℹ Login/Sign Up need a small backend server to finish the OAuth handshake — Pulse doesn\'t have one yet, so this isn\'t wired up. Use API Token below instead; it works fully without a backend.';
-    banner.classList.add('show');
+  async function startOAuthLogin(){
+    const clientId = (appIdInput.value || '').trim();
+    if (!clientId) {
+      flashRiskNote('Enter your App ID above first (the alphanumeric one from developers.deriv.com).');
+      return;
+    }
+    const verifier = randomVerifier();
+    const challenge = await sha256base64url(verifier);
+    const url = new URL('https://auth.deriv.com/oauth2/auth');
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('client_id', clientId);
+    url.searchParams.set('redirect_uri', OAUTH_REDIRECT_URI);
+    url.searchParams.set('scope', 'trade account_manage');
+    url.searchParams.set('state', verifier);
+    url.searchParams.set('code_challenge', challenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+    window.location.href = url.toString();
   }
 
-  // Login/Sign Up via OAuth need a backend to exchange the auth code for a token
-  // (Deriv explicitly disallows doing that exchange from the browser). Pulse is a
-  // static page with no backend, so these are disabled for now — API Token is the
-  // fully-supported way to connect until that backend piece gets built separately.
-  optLogin.addEventListener('click', explainBackendNeeded);
-  optSignup.addEventListener('click', explainBackendNeeded);
+  optLogin.addEventListener('click', startOAuthLogin);
+  optSignup.addEventListener('click', startOAuthLogin);
 
   optToken.addEventListener('click', () => {
     tokenPanel.style.display = tokenPanel.style.display === 'none' ? 'block' : 'none';
   });
+
+  async function parsePkceReturn(){
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const verifier = params.get('state');
+    if (!code || !verifier) return;
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+    const banner = document.getElementById('errBanner');
+    document.getElementById('modeNew').checked = true;
+    document.getElementById('modeNew').dispatchEvent(new Event('change'));
+    openModal();
+    acctNote.textContent = 'Finishing login — exchanging authorization code for an access token…';
+
+    try {
+      const res = await fetch(OAUTH_WORKER_BASE + '/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          code_verifier: verifier,
+          client_id: appIdInput.value.trim(),
+          redirect_uri: OAUTH_REDIRECT_URI
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.access_token) {
+        throw new Error(data.error_description || data.error || ('HTTP ' + res.status));
+      }
+      tokenInput.value = data.access_token;
+      acctNote.textContent = 'Login successful — connecting…';
+      connect();
+    } catch (err) {
+      banner.textContent = '⚠ OAuth token exchange failed: ' + err.message + '. If this mentions a missing client secret, the Worker needs one added — tell me and I\'ll show you how.';
+      banner.classList.add('show');
+      acctNote.textContent = 'Login failed — you can still use API Token below instead.';
+    }
+  }
 
   function parseOAuthReturn(){
     const params = new URLSearchParams(window.location.search);
@@ -943,6 +1002,9 @@
       } else if (data.msg_type === 'buy' || data.msg_type === 'proposal') {
         logTrade(null, 'Error: ' + data.error.message, 0);
         pendingContract = false;
+        if (/not allowed|validation failed|invalid/i.test(data.error.message)) {
+          haltTrading('Trade request rejected by Deriv: "' + data.error.message + '" — this means the message format doesn\'t match what this API expects. Stopped rather than repeat the same broken request.');
+        }
       }
       return;
     }
@@ -1004,7 +1066,11 @@
     const synth = list.filter(s => s.market === 'synthetic_index' && (s.submarket === 'random_index' || s.submarket === 'jump_index'));
     synth.forEach(s => {
       if (!symbols[s.symbol]) {
-        symbols[s.symbol] = { display_name: s.display_name, submarket: s.submarket_display_name };
+        symbols[s.symbol] = {
+          display_name: s.display_name,
+          submarket: s.submarket_display_name,
+          underlying_symbol: s.underlying_symbol || s.symbol
+        };
         ticks[s.symbol] = [];
         candles[s.symbol] = [];
       }
@@ -1410,9 +1476,17 @@
       contract_type: contractType,
       currency: (symbols[pick.symbol] && symbols[pick.symbol].currency) || 'USD',
       duration: duration,
-      duration_unit: 't',
-      symbol: pick.symbol
+      duration_unit: 't'
     };
+    // Deriv renamed 'symbol' to 'underlying_symbol' on the new Options API's proposal
+    // schema; the legacy WebSocket protocol still expects 'symbol'. Use the actual
+    // underlying_symbol value returned by active_symbols rather than assuming it
+    // matches the symbol code, since Deriv explicitly said not to assume that.
+    if (getApiMode() === 'new') {
+      payload.underlying_symbol = (symbols[pick.symbol] && symbols[pick.symbol].underlying_symbol) || pick.symbol;
+    } else {
+      payload.symbol = pick.symbol;
+    }
     if (pick.digit !== undefined) payload.barrier = String(pick.digit);
     send(payload);
   }
@@ -1549,6 +1623,7 @@
   window.addEventListener('beforeunload', () => { if (ws) ws.close(); });
 
   parseOAuthReturn();
+  parsePkceReturn();
 
   // Markets shouldn't be gated behind login — open a guest (unauthorized) market-data
   // feed immediately on page load, using whatever mode/App ID is currently selected.
