@@ -932,15 +932,18 @@
       };
       tradeWs.onmessage = (evt) => handleMessage(JSON.parse(evt.data));
       tradeWs.onerror = () => {
-        banner.textContent = '⚠ Trading WebSocket error for New API mode. Trading may not be available yet on this account/app.';
-        banner.classList.add('show');
+        // Browsers deliberately hide details on the 'error' event — the close
+        // event below carries the actual code/reason from Deriv's server.
       };
-      tradeWs.onclose = () => {
+      tradeWs.onclose = (evt) => {
         tradeWsReady = false;
+        const detail = 'code ' + evt.code + (evt.reason ? (': ' + evt.reason) : ' (no reason given by server)');
+        banner.textContent = '⚠ New API trading connection closed — ' + detail + '.';
+        banner.classList.add('show');
         if (autoTradeOn) {
-          haltTrading('New API trading connection dropped — bot stopped. Reconnect to resume.');
+          haltTrading('New API trading connection dropped (' + detail + ') — bot stopped. Reconnect to resume.');
         }
-        acctNote.textContent = 'Trading connection closed for New API mode. Balance display still works; reconnect to trade again.';
+        acctNote.textContent = 'Trading connection closed for New API mode (' + detail + '). Balance display still works; reconnect to trade again.';
       };
     } catch (err) {
       banner.textContent = '⚠ Could not set up New API trading session: ' + err.message + '. This is the most experimental part of the integration — balance display above still works regardless.';
