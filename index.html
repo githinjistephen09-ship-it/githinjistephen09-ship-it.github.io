@@ -3,69 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>PULSE — Deriv Synthetics Terminal</title>
+<title>PULSE — Deriv Market Analysis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0A0C10;
-    --panel:#12151C;
-    --panel-2:#181C25;
-    --line:#232833;
-    --text:#E8EAED;
-    --muted:#7A8290;
-    --up:#00E5C7;
-    --down:#FF5C7A;
-    --warn:#F5B942;
-    --focus:#5B9DFF;
+    --bg:#0A0C10; --panel:#12151C; --panel-2:#181C25; --line:#232833;
+    --text:#E8EAED; --muted:#7A8290; --up:#00E5C7; --down:#FF5C7A; --warn:#F5B942; --focus:#5B9DFF;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;height:100%;overflow-x:hidden;}
   ::selection{background:var(--up);color:#000;}
-  button{font-family:inherit;cursor:pointer;}
-  input{font-family:inherit;}
   *:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
   @media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms !important; transition-duration:.01ms !important;} }
+  body{padding-bottom:64px;}
 
-  /* ---------- Top bar ---------- */
+  #errBanner{
+    display:none;background:#3A1013;color:#FFB3BE;border-bottom:1px solid var(--down);
+    padding:9px 16px;font-size:12.5px;font-family:'IBM Plex Mono',monospace;position:sticky;top:0;z-index:30;
+  }
+  #errBanner.show{display:block;}
+
   .topbar{
-    display:flex;align-items:center;gap:14px;
-    padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
-    position:sticky;top:0;z-index:20;flex-wrap:wrap;
+    display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;
   }
-  .topbar-row1{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;}
-  .brand{display:flex;align-items:center;gap:9px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;letter-spacing:0.5px;flex-shrink:0;}
-  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);transition:background .3s,box-shadow .3s;flex-shrink:0;}
-  .brand .dot.live{background:var(--up);box-shadow:0 0 8px var(--up);animation:heartbeat 1.6s ease-in-out infinite;}
+  .brand{display:flex;align-items:center;gap:9px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;letter-spacing:0.5px;}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+  .dot.live{background:var(--up);box-shadow:0 0 8px var(--up);animation:heartbeat 1.6s ease-in-out infinite;}
   @keyframes heartbeat{0%,100%{transform:scale(1);}50%{transform:scale(1.35);}}
-  .conn-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;width:100%;}
-  .conn-form input{
-    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
-    padding:7px 10px;border-radius:6px;font-size:13px;width:150px;flex:1;min-width:130px;font-family:'IBM Plex Mono',monospace;
-  }
-  .conn-form input::placeholder{color:var(--muted);}
-  .btn{
-    background:var(--up);color:#04141F;border:none;padding:8px 16px;border-radius:6px;
-    font-weight:600;font-size:13px;transition:filter .15s, transform .1s;
-  }
-  .btn:hover{filter:brightness(1.1);}
-  .btn:active{transform:scale(.97);}
-  .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--text);}
-  .btn.danger{background:var(--down);color:#2A0509;}
-  .btn:disabled{opacity:.4;cursor:not-allowed;}
-  .status-pill{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:4px 9px;border:1px solid var(--line);border-radius:20px;}
+  .status-pill{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);padding:4px 9px;border:1px solid var(--line);border-radius:20px;}
 
-  /* ---------- Layout ---------- */
-  .layout{display:grid;grid-template-columns:260px 1fr 300px;gap:1px;background:var(--line);min-height:calc(100vh - 56px);}
-  @media (max-width:980px){.layout{grid-template-columns:1fr;}}
+  .page{display:none;} .page.active{display:block;}
+  .markets-layout{display:grid;grid-template-columns:260px 1fr;gap:1px;background:var(--line);min-height:calc(100vh - 56px - 60px);}
+  @media (max-width:980px){.markets-layout{grid-template-columns:1fr;}}
 
-  /* ---------- Symbol list ---------- */
   .symlist{background:var(--bg);overflow-y:auto;max-height:calc(100vh - 56px);}
   .symlist-header{padding:12px 14px 6px;font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;font-family:'Space Grotesk',sans-serif;}
-  .sym-row{
-    display:flex;align-items:center;justify-content:space-between;gap:8px;
-    padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s;
-  }
+  .sym-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s;}
   .sym-row:hover{background:var(--panel);}
   .sym-row.active{background:var(--panel-2);border-left:2px solid var(--up);}
   .sym-name{display:flex;flex-direction:column;gap:2px;min-width:0;}
@@ -73,11 +48,10 @@
   .sym-name span{font-size:10px;color:var(--muted);}
   .sym-right{display:flex;align-items:center;gap:8px;}
   .sym-price{font-family:'IBM Plex Mono',monospace;font-size:12px;text-align:right;}
-  .pulse-wrap{width:44px;height:20px;position:relative;}
+  .pulse-wrap{width:44px;height:20px;}
   .pulse-wrap canvas{width:100%;height:100%;}
   .empty-note{padding:24px 14px;color:var(--muted);font-size:12.5px;line-height:1.6;}
 
-  /* ---------- Main panel ---------- */
   .main{background:var(--bg);padding:18px;overflow-y:auto;max-height:calc(100vh - 56px);}
   .main-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
   .main-title{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;}
@@ -94,241 +68,49 @@
   .signal-bar-fill{height:100%;border-radius:4px;transition:width .3s ease;}
   .disclaimer{font-size:11.5px;color:var(--muted);line-height:1.6;border-top:1px solid var(--line);padding-top:12px;margin-top:8px;}
 
-  /* ---------- Trade panel ---------- */
-  .tradepanel{background:var(--bg);padding:16px;overflow-y:auto;max-height:calc(100vh - 56px);}
-  .section-title{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;}
-  .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;}
-  .row:last-child{margin-bottom:0;}
-  .row label{color:var(--muted);}
-  .row input[type=number]{
-    width:90px;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
-    padding:6px 8px;border-radius:6px;font-family:'IBM Plex Mono',monospace;text-align:right;
-  }
-  .toggle{position:relative;width:40px;height:22px;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;cursor:pointer;flex-shrink:0;}
-  .toggle .knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:.2s;}
-  .toggle.on{background:rgba(0,229,199,.15);border-color:var(--up);}
-  .toggle.on .knob{transform:translateX(18px);background:var(--up);}
-  .balance-line{display:flex;justify-content:space-between;align-items:baseline;}
-  .balance-line .num{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;}
-  .log{max-height:220px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:11.5px;}
-  .log-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);gap:6px;}
-  .log-row:last-child{border-bottom:none;}
-  .log-row .win{color:var(--up);} .log-row .loss{color:var(--down);}
-  .note{font-size:11.5px;color:var(--muted);line-height:1.6;}
-  .token-wrap{position:relative;flex:1;min-width:130px;display:flex;}
-  .token-wrap input{width:100%;padding-right:34px;}
-  .token-eye{
-    position:absolute;right:4px;top:50%;transform:translateY(-50%);
-    background:none;border:none;color:var(--muted);font-size:14px;padding:6px;line-height:1;
-  }
-  .token-eye:hover{color:var(--text);}
-  .acct-badge{
-    display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
-    padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;
-  }
-  .acct-badge.demo{background:rgba(245,185,66,.15);color:var(--warn);border:1px solid var(--warn);}
-  .acct-badge.real{background:rgba(255,92,122,.15);color:var(--down);border:1px solid var(--down);}
-  .acct-loginid{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);}
-  .acct-header-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;}
-  #acctSwitcher{display:flex;}
-  .acct-pill{
-    background:var(--panel-2);border:1px solid var(--line);color:var(--muted);
-    padding:6px 10px;border-radius:20px;font-size:11.5px;font-family:'IBM Plex Mono',monospace;
-  }
-  .acct-pill.active{border-color:var(--up);color:var(--up);}
-  .req-lock{opacity:.45;pointer-events:none;}
-  .bot-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-  .bot-stat{display:flex;flex-direction:column;gap:4px;}
-  .bot-stat label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
-  .bot-stat input, .bot-select, .bot-stat-fixed{
-    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
-    padding:8px 6px;border-radius:6px;font-family:'IBM Plex Mono',monospace;text-align:center;font-size:13px;
-  }
-  .bot-stat-fixed{color:var(--muted);}
-  .bot-select{width:100%;-webkit-appearance:none;appearance:none;}
-  .run-btn{background:var(--up);color:#04141F;font-weight:700;font-size:15px;padding:12px;}
-  .run-btn.running{background:var(--down);color:#2A0509;}
-  #errBanner{
-    display:none;background:#3A1013;color:#FFB3BE;border-bottom:1px solid var(--down);
-    padding:9px 16px;font-size:12.5px;font-family:'IBM Plex Mono',monospace;
-    position:sticky;top:0;z-index:30;
-  }
-  #errBanner.show{display:block;}
-
-  .modal-overlay{
-    display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;
-    align-items:flex-end;justify-content:center;
-  }
-  .modal-overlay.show{display:flex;}
-  .modal-card{
-    background:var(--panel);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:520px;
-    max-height:88vh;overflow-y:auto;border:1px solid var(--line);border-bottom:none;
-  }
-  @media (min-width:640px){
-    .modal-overlay{align-items:center;}
-    .modal-card{border-radius:16px;border-bottom:1px solid var(--line);}
-  }
-  .modal-header{display:flex;justify-content:space-between;align-items:center;}
-  .modal-header h2{font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0;}
-  .modal-close{background:none;border:none;color:var(--muted);font-size:22px;line-height:1;padding:4px 8px;}
-  .modal-sub{color:var(--muted);font-size:13px;margin:6px 0 16px;}
-  .modal-field-label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
-  .modal-appid-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
-  .modal-appid-row input[type=text]{
-    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
-    padding:8px 10px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:13px;width:140px;
-  }
-  .modal-mode-toggle{display:flex;gap:12px;flex-wrap:wrap;}
-  .modal-mode-toggle label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);}
-  .connect-option{
-    width:100%;display:flex;align-items:center;gap:14px;background:var(--panel-2);
-    border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;text-align:left;
-    transition:border-color .15s;
-  }
-  .connect-option:hover{border-color:var(--focus);}
-  .opt-icon{
-    width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-    font-size:19px;flex-shrink:0;color:#fff;
-  }
-  .opt-icon.blue{background:var(--focus);}
-  .opt-icon.green{background:var(--up);color:#04141F;}
-  .opt-icon.orange{background:var(--warn);color:#2A1B00;}
-  .opt-text{flex:1;min-width:0;}
-  .opt-title{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .opt-badge{background:var(--focus);color:#fff;font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:20px;text-transform:uppercase;}
-  .opt-desc{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4;}
-  .opt-chevron{font-size:20px;color:var(--muted);flex-shrink:0;}
-  .modal-divider{
-    font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;
-    text-align:center;margin:18px 0 12px;position:relative;
-  }
-  .modal-divider::before, .modal-divider::after{
-    content:'';position:absolute;top:50%;width:38%;height:1px;background:var(--line);
-  }
-  .modal-divider::before{left:0;} .modal-divider::after{right:0;}
-  .connect-option.disabled{opacity:.55;}
-  .opt-badge.soon{background:var(--warn);color:#2A1B00;}
-
-  /* ---------- Page nav ---------- */
-  .page{display:none;}
-  .page.active{display:block;}
-  .markets-layout{display:grid;grid-template-columns:260px 1fr;gap:1px;background:var(--line);min-height:calc(100vh - 56px - 60px);}
-  @media (max-width:980px){.markets-layout{grid-template-columns:1fr;}}
-  .bottomnav{
-    position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--panel);
-    border-top:1px solid var(--line);z-index:50;padding-bottom:env(safe-area-inset-bottom);
-  }
-  .bottomnav button{
-    flex:1;background:none;border:none;color:var(--muted);padding:10px 4px 8px;
-    display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;
-  }
-  .bottomnav button .nav-icon{font-size:18px;}
-  .bottomnav button.active{color:var(--up);}
-  body{padding-bottom:64px;}
-
-  /* ---------- Analysis page ---------- */
   .analysis-page{padding:16px;max-width:800px;margin:0 auto;}
   .analysis-intro{color:var(--muted);font-size:12.5px;line-height:1.6;margin-bottom:16px;}
-  .analysis-table{width:100%;border-collapse:collapse;}
-  .analysis-table th{
-    text-align:left;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
-    padding:8px 10px;border-bottom:1px solid var(--line);
+  .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;}
+  .row label{color:var(--muted);}
+  .bot-select{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:8px 10px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:13px;
   }
+  .analysis-table{width:100%;border-collapse:collapse;}
+  .analysis-table th{text-align:left;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line);}
   .analysis-table td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;}
   .analysis-table td.sym{font-weight:600;}
   .analysis-table td.metric{font-family:'IBM Plex Mono',monospace;text-align:right;}
   .analysis-table tr:last-child td{border-bottom:none;}
   .analysis-empty{color:var(--muted);font-size:12.5px;padding:20px;text-align:center;}
+
+  .bottomnav{
+    position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--panel);
+    border-top:1px solid var(--line);z-index:50;padding-bottom:env(safe-area-inset-bottom);
+  }
+  .bottomnav button{flex:1;background:none;border:none;color:var(--muted);padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;}
+  .bottomnav button .nav-icon{font-size:18px;}
+  .bottomnav button.active{color:var(--up);}
 </style>
 </head>
 <body>
+
 <div id="errBanner"></div>
+
 <div class="topbar">
-  <div class="topbar-row1">
-    <div class="brand"><span class="dot" id="liveDot"></span>PULSE</div>
-    <span class="acct-badge" id="topAcctBadge" style="display:none;"></span>
-    <span class="status-pill" id="statusPill">Disconnected</span>
-    <button class="btn" id="openConnectModalBtn" style="margin-left:auto;">Connect Account</button>
-    <button class="btn secondary" id="disconnectBtn" style="display:none;">Disconnect</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="connectModalOverlay">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h2>Connect Your Deriv Account</h2>
-      <button type="button" class="modal-close" id="modalCloseBtn">×</button>
-    </div>
-    <p class="modal-sub">Choose how you want to connect to Pulse.</p>
-
-    <div class="modal-appid-row">
-      <div>
-        <label class="modal-field-label">App ID</label>
-        <input id="appIdInput" type="text" placeholder="App ID" value="1089">
-      </div>
-      <div class="modal-mode-toggle">
-        <label><input type="radio" name="apiMode" id="modeLegacy" value="legacy" checked> Legacy</label>
-        <label><input type="radio" name="apiMode" id="modeNew" value="new"> New API (PAT)</label>
-      </div>
-    </div>
-
-    <button type="button" class="connect-option" id="optToken">
-      <div class="opt-icon orange">🔑</div>
-      <div class="opt-text">
-        <div class="opt-title">API Token <span class="opt-badge">Recommended</span></div>
-        <div class="opt-desc">Connect using a Deriv API token (Trade + Account management)</div>
-      </div>
-      <div class="opt-chevron">›</div>
-    </button>
-
-    <div id="tokenPanel" style="display:block;">
-      <label class="modal-field-label">API token</label>
-      <div class="token-wrap" style="margin-bottom:10px;">
-        <input id="tokenInput" type="password" placeholder="Paste your token here">
-        <button type="button" class="token-eye" id="tokenEyeBtn" aria-label="Show token">👁</button>
-      </div>
-      <button type="button" class="btn" id="connectBtn" style="width:100%;">Connect</button>
-    </div>
-
-    <div class="modal-divider">Other ways to connect</div>
-
-    <button type="button" class="connect-option" id="optLogin">
-      <div class="opt-icon blue">⇄</div>
-      <div class="opt-text">
-        <div class="opt-title">Login <span class="opt-badge">OAuth</span></div>
-        <div class="opt-desc">Sign in with your Deriv account — no token to copy/paste</div>
-      </div>
-      <div class="opt-chevron">›</div>
-    </button>
-
-    <button type="button" class="connect-option" id="optSignup">
-      <div class="opt-icon green">＋</div>
-      <div class="opt-text">
-        <div class="opt-title">Sign Up</div>
-        <div class="opt-desc">New to Deriv? Create an account, then connect automatically</div>
-      </div>
-      <div class="opt-chevron">↗</div>
-    </button>
-
-    <div id="oauthPicker" style="display:none;margin-top:14px;">
-      <span class="note" style="width:100%;display:block;margin-bottom:8px;">Logged in via Deriv. Choose an account:</span>
-    </div>
-  </div>
+  <div class="brand"><span class="dot" id="liveDot"></span>PULSE</div>
+  <span class="status-pill" id="statusPill">Connecting…</span>
 </div>
 
 <div class="page active" id="pageMarkets">
 <div class="markets-layout">
-
-  <!-- SYMBOL LIST -->
   <div class="symlist">
-    <div class="symlist-header">Synthetic Indices</div>
+    <div class="symlist-header">Volatility &amp; Jump Indices</div>
     <div id="symListBody">
-      <div class="empty-note">Connect to load live synthetic indices (Volatility, Boom/Crash, Jump, Step, Range Break).</div>
+      <div class="empty-note">Connecting to live market data…</div>
     </div>
   </div>
 
-  <!-- MAIN -->
   <div class="main">
     <div class="main-head">
       <div>
@@ -356,10 +138,9 @@
     </div>
 
     <div class="disclaimer">
-      Signal strength is a simple heuristic derived from short vs. long moving-average momentum and recent volatility on live ticks. It is not a prediction of future price movement, is not financial advice, and synthetic indices carry high risk. Always test on a demo account before risking real funds.
+      Signal strength is a simple heuristic derived from short vs. long moving-average momentum and recent volatility on live ticks. It is not a prediction of future price movement, is not financial advice, and synthetic indices carry high risk.
     </div>
   </div>
-
 </div>
 </div>
 
@@ -367,11 +148,11 @@
   <div class="analysis-page">
     <div class="main-title" style="font-size:20px;margin-bottom:6px;">Market Analysis</div>
     <div class="analysis-intro">
-      Ranks Volatility and Jump indices live per contract type, restricted to these two families since they're the only ones Deriv allows for these contracts. The "Metric" column is a <strong>z-score-based confidence</strong> (0–100), not a raw percentage — it measures how statistically unusual the observed skew is against the expected random baseline, given the sample size. A 60% skew on 20 ticks is much less meaningful than a 60% skew on 100 ticks; this accounts for that instead of treating them the same. Still a heuristic, not a prediction — Deriv's synthetic indices are designed to be close to statistically fair.
+      Ranks Volatility and Jump indices live per contract type. The "Confidence" column is a <strong>z-score-based confidence</strong> (0–100), not a raw percentage — it measures how statistically unusual the observed skew is against the expected random baseline, given the sample size, so a 60% skew on 20 ticks isn't treated the same as a 60% skew on 100 ticks. Still a heuristic, not a prediction — Deriv's synthetic indices are designed to be close to statistically fair.
     </div>
     <div class="row" style="margin-bottom:14px;">
       <label>Lookback window</label>
-      <select id="lookbackInput" class="bot-select" style="width:auto;">
+      <select id="lookbackInput" class="bot-select">
         <option value="20">20 ticks (fast, noisier)</option>
         <option value="50">50 ticks (balanced)</option>
         <option value="100">100 ticks (slow, more reliable)</option>
@@ -386,279 +167,55 @@
   </div>
 </div>
 
-<div class="page" id="pageTrade">
-  <div class="tradepanel">
-    <div class="section-title">Account</div>
-    <div class="card">
-      <div class="acct-header-row">
-        <span class="acct-badge" id="acctBadge" style="display:none;"></span>
-        <span class="acct-loginid" id="acctLoginId"></span>
-      </div>
-      <div class="balance-line">
-        <span class="note">Balance</span>
-        <span class="num" id="balanceVal">—</span>
-      </div>
-      <div class="note" style="margin-top:6px;" id="acctNote">Add an API token above and connect to authorize.</div>
-      <div id="acctSwitcher" style="display:none;margin-top:10px;gap:6px;flex-wrap:wrap;"></div>
+<div class="page" id="pageGold">
+  <div class="analysis-page">
+    <div class="main-title" style="font-size:20px;margin-bottom:6px;">Gold (XAU/USD)</div>
+    <div class="analysis-intro">
+      Live trend signal plus a risk-based position size calculator. This shows what the current momentum looks like and lets you size a position around a stop-loss you choose — it does not tell you to buy or sell, since no one can know gold's next move in advance. You decide the trade; this just does the math once you've decided.
     </div>
 
-    <div class="section-title">Bot</div>
-    <div class="card" id="autoCard">
-      <div class="row"><label>Contract type</label>
-        <select id="contractTypeInput" class="bot-select" style="width:auto;min-width:150px;">
-          <option value="RISEUP">Rise (Up)</option>
-          <option value="RISEDOWN">Fall (Down)</option>
-          <option value="HIGHER">Higher</option>
-          <option value="LOWER">Lower</option>
-          <option value="EVEN">Even</option>
-          <option value="ODD">Odd</option>
-          <option value="MATCH">Matches</option>
-          <option value="DIFFER">Differs</option>
-          <option value="OVER">Over</option>
-          <option value="UNDER">Under</option>
-        </select>
-      </div>
-      <div class="bot-stat-row" style="margin-top:10px;">
-        <div class="bot-stat"><label>Stake</label><input type="number" id="stakeInput" value="1" min="0.35" step="0.5"></div>
-        <div class="bot-stat"><label>Duration</label><input type="number" id="durInput" value="5" min="1" max="10" step="1"></div>
-        <div class="bot-stat"><label>D. Unit</label><div class="bot-stat-fixed">t</div></div>
-        <div class="bot-stat">
-          <label>Speed</label>
-          <select id="speedInput" class="bot-select">
-            <option value="1">Ultra Fast</option>
-            <option value="2">Fast</option>
-            <option value="3">Normal</option>
-          </select>
-        </div>
-      </div>
-      <div class="row" style="margin-top:12px;"><label>Signal threshold %</label><input type="number" id="threshInput" value="65" min="50" max="95" step="1"></div>
-      <div class="note" id="pickedMarketNote" style="margin-top:6px;">Waiting for analysis data…</div>
-      <div class="note" id="contractHint" style="margin-top:6px;">Rise/Fall trades on momentum direction (up/down).</div>
-
-      <button type="button" class="btn secondary" id="riskMgtToggle" style="width:100%;margin-top:12px;">⚙ Risk Mgt</button>
-      <div id="riskMgtPanel" style="display:none;margin-top:10px;">
-        <div class="row"><label>Martingale multiplier</label><input type="number" id="martInput" value="1" min="1" max="3" step="0.1"></div>
-        <div class="row"><label>Max martingale steps</label><input type="number" id="martStepsInput" value="0" min="0" max="6" step="1"></div>
-        <div class="row"><label>Daily loss limit (USD)</label><input type="number" id="lossLimitInput" value="10" min="1" step="1"></div>
-        <div class="row"><label>Daily profit target (USD)</label><input type="number" id="profitTargetInput" value="10" min="1" step="1"></div>
-      </div>
-
-      <button type="button" class="btn run-btn" id="runBtn" style="width:100%;margin-top:14px;">▶ Run</button>
-      <div class="note" id="botStatusNote" style="text-align:center;margin-top:8px;">Bot is not running…</div>
-    </div>
-    <div class="note" id="riskNote" style="margin:6px 0 14px;">Requires an authorized API token. Trades on the currently selected symbol only.</div>
-
-    <div class="section-title">Session P/L</div>
-    <div class="card">
-      <div class="row"><label>Net P/L</label><span class="num" id="plVal" style="font-family:'IBM Plex Mono',monospace;font-weight:600;">$0.00</span></div>
-      <div class="row"><label>Trades</label><span id="tradeCountVal">0</span></div>
-      <div class="row"><label>Win rate</label><span id="winRateVal">—</span></div>
+    <div class="stat-grid" style="margin-bottom:14px;">
+      <div class="stat-card"><div class="label">Live price</div><div class="value" id="goldPrice">—</div></div>
+      <div class="stat-card"><div class="label">Trend signal</div><div class="value" id="goldSignal">—</div></div>
+      <div class="stat-card"><div class="label">Recent volatility</div><div class="value" id="goldVol">—</div></div>
+      <div class="stat-card"><div class="label">Last change</div><div class="value" id="goldChange">—</div></div>
     </div>
 
-    <div class="section-title">Trade log</div>
-    <div class="card"><div class="log" id="tradeLog"><div class="note">No trades yet.</div></div></div>
+    <div class="main-title" style="font-size:15px;margin:18px 0 10px;">Position size calculator</div>
+    <div class="row"><label>Account balance (USD)</label><input type="number" id="goldBalance" class="bot-select" value="1000" style="width:110px;text-align:right;"></div>
+    <div class="row"><label>Risk per trade (%)</label><input type="number" id="goldRiskPct" class="bot-select" value="1" step="0.5" style="width:110px;text-align:right;"></div>
+    <div class="row"><label>Entry price</label><input type="number" id="goldEntry" class="bot-select" step="0.01" style="width:110px;text-align:right;"></div>
+    <div class="row"><label>Stop-loss price</label><input type="number" id="goldStop" class="bot-select" step="0.01" style="width:110px;text-align:right;"></div>
+    <div class="row"><label>Take-profit price (optional)</label><input type="number" id="goldTarget" class="bot-select" step="0.01" style="width:110px;text-align:right;"></div>
+    <div class="row"><label>Ounces per standard lot</label><input type="number" id="goldOzPerLot" class="bot-select" value="100" style="width:110px;text-align:right;"></div>
+    <div class="analysis-intro" style="margin:4px 0 14px;">100 oz/lot is the common convention, but verify Deriv's exact Gold contract spec and adjust this if it differs.</div>
+
+    <button type="button" class="bot-select" id="goldCalcBtn" style="width:100%;padding:12px;font-weight:600;cursor:pointer;">Calculate</button>
+
+    <div id="goldResult" style="margin-top:16px;"></div>
   </div>
-
 </div>
 
 <nav class="bottomnav">
   <button type="button" class="nav-btn active" data-page="pageMarkets"><span class="nav-icon">📈</span>Markets</button>
   <button type="button" class="nav-btn" data-page="pageAnalysis"><span class="nav-icon">🔬</span>Analysis</button>
-  <button type="button" class="nav-btn" data-page="pageTrade"><span class="nav-icon">🤖</span>Trade</button>
-  <button type="button" class="nav-btn" id="navLoginBtn"><span class="nav-icon">🔑</span>Login</button>
+  <button type="button" class="nav-btn" data-page="pageGold"><span class="nav-icon">🥇</span>Gold</button>
 </nav>
 
 <script>
 (function(){
   "use strict";
 
-  // ---------------- Error visibility ----------------
   window.addEventListener('error', (e) => {
     const banner = document.getElementById('errBanner');
     if (!banner) return;
-    const msg = e.message || 'Unknown error';
-    const loc = (e.filename ? e.filename.split('/').pop() : '') + (e.lineno ? ':' + e.lineno : '');
-    banner.textContent = '⚠ ' + msg + (loc && loc !== ':' ? ' (' + loc + ')' : '') +
-      (msg === 'Script error.' ? ' — likely blocked by a sandboxed preview; open this file directly in Safari/Chrome instead.' : '');
-    banner.classList.add('show');
-  });
-  window.addEventListener('unhandledrejection', (e) => {
-    const banner = document.getElementById('errBanner');
-    if (!banner) return;
-    banner.textContent = '⚠ Promise error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+    banner.textContent = '⚠ ' + (e.message || 'Unknown error');
     banner.classList.add('show');
   });
 
-  // ---------------- State ----------------
-  let ws = null;
-  let authorized = false;
-  let authFailed = false;
-  let symbols = {};          // symbol -> {display_name, market, sub}
-  let ticks = {};            // symbol -> [{t, p}]
-  let candles = {};          // symbol -> [{t,o,h,l,c}]
-  const CANDLE_SECONDS = 5;
-  const MAX_CANDLES = 60;
-  let activeSymbol = null;
-  const MAX_TICKS = 200;
-
-  let autoTradeOn = false;
-  let martingaleStep = 0;
-  let currentStake = 1;
-  let sessionPL = 0;
-  let tradeCount = 0;
-  let winCount = 0;
-  let tradingHalted = false;
-  let pendingContract = false;
-  let reqIdCounter = 1;
-  const pendingReqs = {}; // req_id -> resolver
-
-  // ---------------- DOM refs ----------------
   const $ = (id) => document.getElementById(id);
-  const appIdInput = $('appIdInput');
-  const tokenInput = $('tokenInput');
-  const oauthPicker = $('oauthPicker');
-  const tokenEyeBtn = $('tokenEyeBtn');
-  tokenEyeBtn.addEventListener('click', () => {
-    const showing = tokenInput.type === 'text';
-    tokenInput.type = showing ? 'password' : 'text';
-    tokenEyeBtn.textContent = showing ? '👁' : '🙈';
-  });
-
-  const connectModalOverlay = $('connectModalOverlay');
-  const openConnectModalBtn = $('openConnectModalBtn');
-  const modalCloseBtn = $('modalCloseBtn');
-  const optLogin = $('optLogin');
-  const optSignup = $('optSignup');
-  const optToken = $('optToken');
-  const tokenPanel = $('tokenPanel');
-
-  function openModal(){ connectModalOverlay.classList.add('show'); }
-  function closeModal(){ connectModalOverlay.classList.remove('show'); }
-
-  openConnectModalBtn.addEventListener('click', openModal);
-  modalCloseBtn.addEventListener('click', closeModal);
-  connectModalOverlay.addEventListener('click', (e) => { if (e.target === connectModalOverlay) closeModal(); });
-
-  const OAUTH_WORKER_BASE = 'https://ancient-truth-55fe.waigithinji06.workers.dev';
-  const OAUTH_REDIRECT_URI = OAUTH_WORKER_BASE + '/callback';
-
-  // PKCE helpers — no server or browser storage needed. The code_verifier is
-  // encoded directly into the OAuth 'state' parameter, which Deriv echoes back
-  // unchanged after the redirect, so it survives the round-trip on its own.
-  function randomVerifier(){
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  }
-  async function sha256base64url(str){
-    const data = new TextEncoder().encode(str);
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  }
-
-  async function startOAuthLogin(){
-    const clientId = (appIdInput.value || '').trim();
-    if (!clientId) {
-      flashRiskNote('Enter your App ID above first (the alphanumeric one from developers.deriv.com).');
-      return;
-    }
-    const verifier = randomVerifier();
-    const challenge = await sha256base64url(verifier);
-    const url = new URL('https://auth.deriv.com/oauth2/auth');
-    url.searchParams.set('response_type', 'code');
-    url.searchParams.set('client_id', clientId);
-    url.searchParams.set('redirect_uri', OAUTH_REDIRECT_URI);
-    url.searchParams.set('scope', 'trade account_manage');
-    url.searchParams.set('state', verifier);
-    url.searchParams.set('code_challenge', challenge);
-    url.searchParams.set('code_challenge_method', 'S256');
-    window.location.href = url.toString();
-  }
-
-  optLogin.addEventListener('click', startOAuthLogin);
-  optSignup.addEventListener('click', startOAuthLogin);
-
-  optToken.addEventListener('click', () => {
-    tokenPanel.style.display = tokenPanel.style.display === 'none' ? 'block' : 'none';
-  });
-
-  async function parsePkceReturn(){
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const verifier = params.get('state');
-    if (!code || !verifier) return;
-
-    window.history.replaceState({}, document.title, window.location.pathname);
-    const banner = document.getElementById('errBanner');
-    document.getElementById('modeNew').checked = true;
-    document.getElementById('modeNew').dispatchEvent(new Event('change'));
-    openModal();
-    acctNote.textContent = 'Finishing login — exchanging authorization code for an access token…';
-
-    try {
-      const res = await fetch(OAUTH_WORKER_BASE + '/exchange', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code,
-          code_verifier: verifier,
-          client_id: appIdInput.value.trim(),
-          redirect_uri: OAUTH_REDIRECT_URI
-        })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.access_token) {
-        throw new Error(data.error_description || data.error || ('HTTP ' + res.status));
-      }
-      tokenInput.value = data.access_token;
-      acctNote.textContent = 'Login successful — connecting…';
-      connect();
-    } catch (err) {
-      banner.textContent = '⚠ OAuth token exchange failed: ' + err.message + '. If this mentions a missing client secret, the Worker needs one added — tell me and I\'ll show you how.';
-      banner.classList.add('show');
-      acctNote.textContent = 'Login failed — you can still use API Token below instead.';
-    }
-  }
-
-  function parseOAuthReturn(){
-    const params = new URLSearchParams(window.location.search);
-    const accounts = [];
-    let i = 1;
-    while (params.has('acct' + i)) {
-      accounts.push({
-        acct: params.get('acct' + i),
-        token: params.get('token' + i),
-        currency: params.get('cur' + i)
-      });
-      i++;
-    }
-    if (accounts.length === 0) return;
-
-    // Clean the tokens out of the visible URL immediately.
-    window.history.replaceState({}, document.title, window.location.pathname);
-
-    openModal();
-    oauthPicker.style.display = 'block';
-    accounts.forEach(acc => {
-      const isDemo = /^VR/i.test(acc.acct);
-      const btn = document.createElement('button');
-      btn.className = 'btn secondary';
-      btn.style.width = '100%';
-      btn.style.marginBottom = '8px';
-      btn.textContent = acc.acct + ' (' + (isDemo ? 'Demo' : 'Real') + ' · ' + acc.currency.toUpperCase() + ')';
-      btn.addEventListener('click', () => {
-        tokenInput.value = acc.token;
-        oauthPicker.style.display = 'none';
-        closeModal();
-        connect();
-      });
-      oauthPicker.appendChild(btn);
-    });
-  }
-  const connectBtn = $('connectBtn');
-  const disconnectBtn = $('disconnectBtn');
-  const statusPill = $('statusPill');
   const liveDot = $('liveDot');
+  const statusPill = $('statusPill');
   const symListBody = $('symListBody');
   const mainTitle = $('mainTitle');
   const mainSub = $('mainSub');
@@ -669,421 +226,58 @@
   const statChange = $('statChange');
   const signalLabel = $('signalLabel');
   const signalBarFill = $('signalBarFill');
-  const balanceVal = $('balanceVal');
-  const acctNote = $('acctNote');
-  const acctBadge = $('acctBadge');
-  const acctLoginId = $('acctLoginId');
-  const topAcctBadge = $('topAcctBadge');
-  const stakeInput = $('stakeInput');
-  const durInput = $('durInput');
-  const threshInput = $('threshInput');
-  const martInput = $('martInput');
-  const martStepsInput = $('martStepsInput');
-  const lossLimitInput = $('lossLimitInput');
-  const profitTargetInput = $('profitTargetInput');
-  const plVal = $('plVal');
-  const tradeCountVal = $('tradeCountVal');
-  const winRateVal = $('winRateVal');
-  const tradeLog = $('tradeLog');
   const mainChart = $('mainChart');
   const ctx = mainChart.getContext('2d');
 
-  // ---------------- WebSocket helpers ----------------
-  function send(payload, forceTradeSocket){
-    const useTradeSocket = forceTradeSocket || (getApiMode() === 'new' && tradeWsReady && ('proposal' in payload || 'buy' in payload || 'proposal_open_contract' in payload));
-    const target = useTradeSocket ? tradeWs : ws;
-    if (!target || target.readyState !== 1) return;
-    target.send(JSON.stringify(payload));
-  }
+  let ws = null;
+  let symbols = {};
+  let ticks = {};
+  let candles = {};
+  let activeSymbol = null;
+  const MAX_TICKS = 200;
+  const CANDLE_SECONDS = 5;
+  const MAX_CANDLES = 60;
 
-  function sendAndWait(payload){
-    return new Promise((resolve) => {
-      const id = reqIdCounter++;
-      payload.req_id = id;
-      pendingReqs[id] = resolve;
-      send(payload);
-    });
-  }
-
-  function getApiMode(){
-    const el = document.querySelector('input[name="apiMode"]:checked');
-    return el ? el.value : 'legacy';
+  function send(payload){
+    if (!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify(payload));
   }
 
   function connect(){
-    if (getApiMode() === 'new') connectNew(); else connectLegacy();
-  }
-
-  let currentConnectedMode = null;
-
-  function connectLegacy(){
-    const appId = (appIdInput.value || '1089').trim();
-    const url = 'wss://ws.derivws.com/websockets/v3?app_id=' + encodeURIComponent(appId);
-    let banner;
-    try {
-      ws = new WebSocket(url);
-    } catch (err) {
-      banner = document.getElementById('errBanner');
-      banner.textContent = '⚠ Could not open WebSocket: ' + err.message + '. If you are viewing this in an in-app preview, open the page in a full browser tab instead.';
-      banner.classList.add('show');
-      return;
-    }
-
+    ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
     ws.onopen = () => {
-      statusPill.textContent = 'Connecting…';
-      authFailed = false;
-      currentConnectedMode = 'legacy';
-      const token = tokenInput.value.trim();
-      if (token && /^pat_/i.test(token)) {
-        const banner = document.getElementById('errBanner');
-        banner.textContent = '⚠ This looks like a New Options API token (starts with "pat_") but Legacy mode is selected. These two systems use different, incompatible tokens. Either switch the mode to "New API (PAT)" above, or paste a token generated from app.deriv.com/account/api-token instead.';
-        banner.classList.add('show');
-        authFailed = true;
-        statusPill.textContent = 'Wrong token type for Legacy mode';
-        loadSymbols();
-        return;
-      }
-      if (token) {
-        send({ authorize: token });
-      } else {
-        loadSymbols();
-        statusPill.textContent = 'Browsing live prices — not logged in';
-      }
+      statusPill.textContent = 'Loading symbols…';
       liveDot.classList.add('live');
-      disconnectBtn.style.display = '';
-      closeModal();
+      send({ active_symbols: 'brief', product_type: 'basic' });
       setInterval(() => send({ ping: 1 }), 30000);
     };
-
-    ws.onmessage = (evt) => {
-      const data = JSON.parse(evt.data);
-      handleMessage(data);
-    };
-
+    ws.onmessage = (evt) => handleMessage(JSON.parse(evt.data));
     ws.onclose = () => {
-      statusPill.textContent = 'Disconnected';
+      statusPill.textContent = 'Disconnected — reconnecting…';
       liveDot.classList.remove('live');
-      disconnectBtn.style.display = 'none';
-      authorized = false;
-      currentConnectedMode = null;
-      acctBadge.style.display = 'none';
-      topAcctBadge.style.display = 'none';
-      $('acctSwitcher').style.display = 'none';
-      acctLoginId.textContent = '';
+      setTimeout(connect, 3000);
     };
-
-    ws.onerror = () => {
-      statusPill.textContent = 'Connection error';
-    };
+    ws.onerror = () => { statusPill.textContent = 'Connection error'; };
   }
 
-  function connectNew(){
-    const url = 'wss://api.derivws.com/trading/v1/options/ws/public';
-    let banner;
-    try {
-      ws = new WebSocket(url);
-    } catch (err) {
-      banner = document.getElementById('errBanner');
-      banner.textContent = '⚠ Could not open New API WebSocket: ' + err.message;
-      banner.classList.add('show');
-      return;
-    }
-
-    ws.onopen = () => {
-      currentConnectedMode = 'new';
-      liveDot.classList.add('live');
-      disconnectBtn.style.display = '';
-      closeModal();
-      loadSymbols();
-      setInterval(() => send({ ping: 1 }), 30000);
-      const token = tokenInput.value.trim();
-      if (token && !/^pat_/i.test(token)) {
-        const banner = document.getElementById('errBanner');
-        banner.textContent = '⚠ This doesn\'t look like a New Options API token (those start with "pat_"). You\'re in New API mode — get a PAT from your app on developers.deriv.com, or switch to Legacy mode to use this token.';
-        banner.classList.add('show');
-        acctNote.textContent = 'Live prices still work above — wrong token type for New API mode.';
-        statusPill.textContent = 'Browsing live prices — not logged in';
-      } else if (token) {
-        fetchNewApiAccount(token);
-      } else {
-        acctNote.textContent = 'New API public mode — live prices only, no token needed. Add a Personal Access Token above to see balance.';
-        statusPill.textContent = 'Browsing live prices — not logged in';
-      }
-    };
-
-    ws.onmessage = (evt) => {
-      const data = JSON.parse(evt.data);
-      handleMessage(data);
-    };
-
-    ws.onclose = () => {
-      statusPill.textContent = 'Disconnected';
-      liveDot.classList.remove('live');
-      disconnectBtn.style.display = 'none';
-      authorized = false;
-      currentConnectedMode = null;
-      acctBadge.style.display = 'none';
-      topAcctBadge.style.display = 'none';
-      $('acctSwitcher').style.display = 'none';
-      acctLoginId.textContent = '';
-    };
-
-    ws.onerror = () => {
-      statusPill.textContent = 'Connection error';
-    };
-  }
-
-  let newApiAccounts = [];
-  let newApiPat = '';
-
-  async function fetchNewApiAccount(pat){
-    const banner = document.getElementById('errBanner');
-    newApiPat = pat;
-    try {
-      const appId = (appIdInput.value || '').trim();
-      const headers = { 'Authorization': 'Bearer ' + pat };
-      if (appId) headers['Deriv-App-ID'] = appId;
-      const res = await fetch('https://api.derivws.com/trading/v1/options/accounts', { headers });
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' — check PAT and App ID header');
-      const data = await res.json();
-      const accounts = Array.isArray(data) ? data : (data.accounts || data.data || []);
-      if (!accounts.length) {
-        acctNote.textContent = 'No Options accounts found yet — creating a demo account via the API…';
-        await createNewApiDemoAccount(pat, appId);
-        return;
-      }
-      newApiAccounts = accounts;
-      renderAcctSwitcher(accounts);
-      applyNewApiAccount(accounts[0]);
-    } catch (err) {
-      banner.textContent = '⚠ New API account fetch failed: ' + err.message + '. This endpoint is new — double-check the PAT was created with the right scope, and that the App ID field has your alphanumeric App ID from developers.deriv.com.';
-      banner.classList.add('show');
-      acctNote.textContent = 'Could not fetch account info from the New API — live prices still work above.';
-    }
-  }
-
-  function renderAcctSwitcher(accounts){
-    const el = $('acctSwitcher');
-    if (accounts.length < 2) { el.style.display = 'none'; return; }
-    el.style.display = 'flex';
-    el.innerHTML = '';
-    accounts.forEach((acc, i) => {
-      const loginid = acc.login_id || acc.id || acc.account_id || ('Account ' + (i+1));
-      const isDemo = /demo/i.test(acc.type || acc.account_type || '') || /^VR/i.test(String(loginid));
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'acct-pill' + (i === 0 ? ' active' : '');
-      btn.textContent = (isDemo ? 'Demo' : 'Real') + ' · ' + loginid;
-      btn.addEventListener('click', () => {
-        el.querySelectorAll('.acct-pill').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        applyNewApiAccount(acc);
-      });
-      el.appendChild(btn);
-    });
-  }
-
-  let currentNewApiAccount = null;
-  let tradeWs = null;
-  let tradeWsReady = false;
-
-  function applyNewApiAccount(acc){
-    authorized = true;
-    currentNewApiAccount = acc;
-    tradeWsReady = false;
-    const loginid = acc.login_id || acc.id || acc.account_id || 'Unknown account';
-    const isDemo = /demo/i.test(acc.type || acc.account_type || '') || /^VR/i.test(String(loginid));
-    statusPill.textContent = 'Authorized (New API) · ' + loginid;
-    acctNote.textContent = 'Authorized as ' + loginid + ' via the New Options API. Setting up trading connection…';
-    acctLoginId.textContent = loginid;
-    [acctBadge, topAcctBadge].forEach(el => {
-      el.textContent = isDemo ? 'Demo' : 'Real';
-      el.className = 'acct-badge ' + (isDemo ? 'demo' : 'real');
-      el.style.display = 'inline-flex';
-    });
-    if (acc.balance !== undefined) {
-      balanceVal.textContent = (acc.currency || '') + ' ' + Number(acc.balance).toFixed(2);
-    } else {
-      balanceVal.textContent = 'Not returned by this endpoint';
-    }
-    openNewApiTradingSocket(acc);
-  }
-
-  // Deriv's new platform requires a short-lived OTP-authenticated WebSocket for
-  // trading actions, separate from the public ticks feed. This handshake is the
-  // least-documented part of the new API — treating it as experimental and
-  // surfacing the exact server response if it doesn't match what's expected.
-  async function openNewApiTradingSocket(acc){
-    const banner = document.getElementById('errBanner');
-    const accountId = acc.id || acc.account_id || acc.login_id;
-    if (!accountId) {
-      banner.textContent = '⚠ Could not determine an account ID to request a trading session for.';
-      banner.classList.add('show');
-      return;
-    }
-    try {
-      const appId = (appIdInput.value || '').trim();
-      const headers = { 'Authorization': 'Bearer ' + newApiPat, 'Content-Type': 'application/json' };
-      if (appId) headers['Deriv-App-ID'] = appId;
-      const res = await fetch('https://api.derivws.com/trading/v1/options/accounts/' + encodeURIComponent(accountId) + '/otp', {
-        method: 'POST', headers
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' requesting trading session (OTP)');
-      const data = await res.json();
-      const wsUrl = (data.data && data.data.url) || data.ws_url || data.url || data.websocket_url || (data.otp ? ('wss://api.derivws.com/trading/v1/options/ws/authenticated?otp=' + encodeURIComponent(data.otp)) : null);
-      if (!wsUrl) throw new Error('OTP response didn\'t include a recognizable WebSocket URL: ' + JSON.stringify(data).slice(0, 150));
-
-      tradeWs = new WebSocket(wsUrl);
-      const loginidLabel = acc.login_id || acc.id || acc.account_id || accountId;
-      tradeWs.onopen = () => {
-        tradeWsReady = true;
-        acctNote.textContent = 'Authorized as ' + loginidLabel + ' via the New Options API. Trading connection is live.';
-        send({ balance: 1, subscribe: 1 }, true);
-      };
-      tradeWs.onmessage = (evt) => handleMessage(JSON.parse(evt.data));
-      tradeWs.onerror = () => {
-        // Browsers deliberately hide details on the 'error' event — the close
-        // event below carries the actual code/reason from Deriv's server.
-      };
-      tradeWs.onclose = (evt) => {
-        tradeWsReady = false;
-        const detail = 'code ' + evt.code + (evt.reason ? (': ' + evt.reason) : ' (no reason given by server)');
-        banner.textContent = '⚠ New API trading connection closed — ' + detail + '.';
-        banner.classList.add('show');
-        if (autoTradeOn) {
-          haltTrading('New API trading connection dropped (' + detail + ') — bot stopped. Reconnect to resume.');
-        }
-        acctNote.textContent = 'Trading connection closed for New API mode (' + detail + '). Balance display still works; reconnect to trade again.';
-      };
-    } catch (err) {
-      banner.textContent = '⚠ Could not set up New API trading session: ' + err.message + '. This is the most experimental part of the integration — balance display above still works regardless.';
-      banner.classList.add('show');
-      acctNote.textContent = 'Authorized — balance shown above, but auto-trade setup failed for New API mode. Legacy mode remains fully working for trading.';
-    }
-  }
-
-  async function createNewApiDemoAccount(pat, appId){
-    const banner = document.getElementById('errBanner');
-    try {
-      const headers = { 'Authorization': 'Bearer ' + pat, 'Content-Type': 'application/json' };
-      if (appId) headers['Deriv-App-ID'] = appId;
-      const res = await fetch('https://api.derivws.com/trading/v1/options/create-account', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ type: 'demo', currency: 'USD' })
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' creating account — check the "Account management" scope is enabled on this PAT');
-      const data = await res.json();
-      const acc = Array.isArray(data.data) ? data.data[0] : data.data || data;
-      if (!acc) throw new Error('Account creation returned no data');
-      acctNote.textContent = 'Demo Options account created.';
-      applyNewApiAccount(acc);
-    } catch (err) {
-      banner.textContent = '⚠ Could not auto-create an Options account: ' + err.message;
-      banner.classList.add('show');
-      acctNote.textContent = 'Live prices still work above — account/balance needs manual troubleshooting for New API mode.';
-    }
-  }
-
-  function disconnect(){
-    if (ws) ws.close();
-    if (tradeWs) { tradeWs.close(); tradeWs = null; tradeWsReady = false; }
-  }
-
-  function loadSymbols(){
-    statusPill.textContent = authorized ? 'Authorized · loading symbols' : 'Loading symbols';
-    send({ active_symbols: 'brief', product_type: 'basic' });
-  }
-
-  // ---------------- Message router ----------------
   function handleMessage(data){
-    if (data.req_id && pendingReqs[data.req_id]) {
-      const resolve = pendingReqs[data.req_id];
-      delete pendingReqs[data.req_id];
-      resolve(data);
-    }
-
-    if (data.error) {
-      if (data.msg_type === 'authorize') {
-        authFailed = true;
-        statusPill.textContent = 'Auth failed: ' + data.error.message;
-        acctNote.textContent = 'Authorization failed — ' + data.error.message + '. Double-check the token was copied in full with no extra spaces, and that it hasn\'t expired.';
-        const banner = document.getElementById('errBanner');
-        banner.textContent = '⚠ Deriv auth error: ' + data.error.message;
-        banner.classList.add('show');
-        loadSymbols();
-      } else if (data.msg_type === 'buy' || data.msg_type === 'proposal') {
-        logTrade(null, 'Error: ' + data.error.message, 0);
-        pendingContract = false;
-        if (/not allowed|validation failed|invalid/i.test(data.error.message)) {
-          haltTrading('Trade request rejected by Deriv: "' + data.error.message + '" — this means the message format doesn\'t match what this API expects. Stopped rather than repeat the same broken request.');
-        }
-      }
-      return;
-    }
-
-    switch (data.msg_type) {
-      case 'authorize':
-        authorized = true;
-        const loginid = data.authorize.loginid;
-        const isDemo = /^VR/i.test(loginid);
-        statusPill.textContent = 'Authorized · live · ' + loginid;
-        acctNote.textContent = 'Authorized as ' + loginid + '. Trading enabled on selected symbol.';
-        acctLoginId.textContent = loginid;
-        [acctBadge, topAcctBadge].forEach(el => {
-          el.textContent = isDemo ? 'Demo' : 'Real';
-          el.className = 'acct-badge ' + (isDemo ? 'demo' : 'real');
-          el.style.display = 'inline-flex';
-        });
-        balanceVal.textContent = data.authorize.currency + ' ' + Number(data.authorize.balance).toFixed(2);
-        send({ balance: 1, subscribe: 1 });
-        loadSymbols();
-        break;
-
-      case 'balance':
-        balanceVal.textContent = data.balance.currency + ' ' + Number(data.balance.balance).toFixed(2);
-        break;
-
-      case 'active_symbols':
-        registerSymbols(data.active_symbols);
-        if (!authorized && !authFailed) statusPill.textContent = 'Connected · live (not authorized)';
-        break;
-
-      case 'tick':
-        handleTick(data.tick);
-        break;
-
-      case 'proposal':
-        if (pendingContract && data.proposal) {
-          send({ buy: data.proposal.id, price: data.proposal.ask_price });
-        }
-        break;
-
-      case 'buy':
-        pendingContract = false;
-        martingaleStep = (martingaleStep > 0) ? martingaleStep : 0;
-        logTrade(data.buy.contract_id, 'Bought ' + data.buy.longcode, null);
-        pollContract(data.buy.contract_id);
-        break;
-
-      default:
-        break;
+    if (data.error) return;
+    if (data.msg_type === 'active_symbols') {
+      registerSymbols(data.active_symbols);
+      statusPill.textContent = 'Live';
+    } else if (data.msg_type === 'tick') {
+      handleTick(data.tick);
     }
   }
 
-  // ---------------- Symbols ----------------
   function registerSymbols(list){
-    // Deriv only allows trading these contract types on Volatility and Jump indices —
-    // Boom/Crash, Step, and Range Break aren't eligible, so exclude them from tracking,
-    // analysis, and the bot entirely rather than showing markets you can't actually trade.
-    const synth = list.filter(s => s.market === 'synthetic_index' && (s.submarket === 'random_index' || s.submarket === 'jump_index'));
+    const synth = list.filter(s =>
+      (s.market === 'synthetic_index' && (s.submarket === 'random_index' || s.submarket === 'jump_index')) ||
+      s.symbol === 'frxXAUUSD'
+    );
     synth.forEach(s => {
       if (!symbols[s.symbol]) {
-        symbols[s.symbol] = {
-          display_name: s.display_name,
-          submarket: s.submarket_display_name,
-          underlying_symbol: s.underlying_symbol || s.symbol
-        };
+        symbols[s.symbol] = { display_name: s.display_name, submarket: s.submarket_display_name };
         ticks[s.symbol] = [];
         candles[s.symbol] = [];
       }
@@ -1102,10 +296,8 @@
       row.dataset.sym = sym;
       row.innerHTML =
         '<div class="sym-name"><b>' + info.display_name + '</b><span>' + (info.submarket || '') + '</span></div>' +
-        '<div class="sym-right">' +
-          '<div class="pulse-wrap"><canvas id="pulse-' + sanitize(sym) + '" width="88" height="40"></canvas></div>' +
-          '<div class="sym-price" id="price-' + sanitize(sym) + '">—</div>' +
-        '</div>';
+        '<div class="sym-right"><div class="pulse-wrap"><canvas id="pulse-' + sanitize(sym) + '" width="88" height="40"></canvas></div>' +
+        '<div class="sym-price" id="price-' + sanitize(sym) + '">—</div></div>';
       row.addEventListener('click', () => selectSymbol(sym));
       symListBody.appendChild(row);
     });
@@ -1118,12 +310,9 @@
     document.querySelectorAll('.sym-row').forEach(r => r.classList.toggle('active', r.dataset.sym === sym));
     mainTitle.textContent = symbols[sym] ? symbols[sym].display_name : sym;
     mainSub.textContent = 'Symbol: ' + sym;
-    martingaleStep = 0;
-    currentStake = parseFloat(stakeInput.value) || 1;
     drawMainChart();
   }
 
-  // ---------------- Ticks ----------------
   function handleTick(tick){
     const sym = tick.symbol;
     if (!ticks[sym]) ticks[sym] = [];
@@ -1145,7 +334,6 @@
       updateStats(sym);
       drawMainChart();
     }
-    checkBotOpportunity();
   }
 
   function updateCandle(sym, epoch, price){
@@ -1154,9 +342,7 @@
     const arr = candles[sym];
     const last = arr[arr.length - 1];
     if (last && last.t === bucket) {
-      last.h = Math.max(last.h, price);
-      last.l = Math.min(last.l, price);
-      last.c = price;
+      last.h = Math.max(last.h, price); last.l = Math.min(last.l, price); last.c = price;
     } else {
       arr.push({ t: bucket, o: price, h: price, l: price, c: price });
       if (arr.length > MAX_CANDLES) arr.shift();
@@ -1189,7 +375,6 @@
     ctx.clearRect(0,0,mainChart.width, mainChart.height);
     const arr = candles[activeSymbol] || [];
     if (arr.length < 2) return;
-
     const highs = arr.map(c => c.h), lows = arr.map(c => c.l);
     const min = Math.min(...lows), max = Math.max(...highs);
     const range = (max - min) || 1;
@@ -1198,64 +383,41 @@
     const slotW = mainChart.width / arr.length;
     const bodyW = Math.max(2, slotW * 0.6);
 
-    // grid
-    ctx.strokeStyle = '#1B2029';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#1B2029'; ctx.lineWidth = 1;
     for (let i=1;i<4;i++){
       const y = pad + (i/4)*usableH;
       ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(mainChart.width,y); ctx.stroke();
     }
-
     const priceToY = (p) => mainChart.height - pad - ((p - min)/range) * usableH;
-
     arr.forEach((c, i) => {
       const x = i * slotW + slotW / 2;
       const up = c.c >= c.o;
       const color = up ? '#00E5C7' : '#FF5C7A';
-      ctx.strokeStyle = color;
-      ctx.fillStyle = color;
-      ctx.lineWidth = 1;
-      // wick
-      ctx.beginPath();
-      ctx.moveTo(x, priceToY(c.h));
-      ctx.lineTo(x, priceToY(c.l));
-      ctx.stroke();
-      // body
-      const yOpen = priceToY(c.o);
-      const yClose = priceToY(c.c);
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, priceToY(c.h)); ctx.lineTo(x, priceToY(c.l)); ctx.stroke();
+      const yOpen = priceToY(c.o), yClose = priceToY(c.c);
       const top = Math.min(yOpen, yClose);
       const h = Math.max(1, Math.abs(yClose - yOpen));
       ctx.fillRect(x - bodyW / 2, top, bodyW, h);
     });
   }
 
-  // ---------------- Stats / signal ----------------
+  function avg(a){ return a.reduce((x,y)=>x+y,0)/a.length; }
+  function stdev(a){ const m = avg(a); return Math.sqrt(avg(a.map(x => (x-m)*(x-m)))); }
+
   function computeSignal(sym){
     const arr = ticks[sym] || [];
     if (arr.length < 20) return null;
     const prices = arr.map(a => a.p);
-    const shortN = 5, longN = 20;
-    const shortMA = avg(prices.slice(-shortN));
-    const longMA = avg(prices.slice(-longN));
+    const shortMA = avg(prices.slice(-5)), longMA = avg(prices.slice(-20));
     const returns = [];
     for (let i=1;i<prices.length;i++) returns.push((prices[i]-prices[i-1])/prices[i-1]);
-    const vol = stdev(returns.slice(-longN)) * 100;
+    const vol = stdev(returns.slice(-20)) * 100;
     const momentum = ((shortMA - longMA) / longMA) * 100;
-    // squash momentum into 0-100 confidence, direction from sign
     const strength = Math.min(100, Math.abs(momentum) * 4000);
-    const direction = momentum >= 0 ? 'UP' : 'DOWN';
-    return { momentum, vol, strength, direction, shortMA, longMA };
+    return { momentum, vol, strength, direction: momentum >= 0 ? 'UP' : 'DOWN' };
   }
 
-  function avg(a){ return a.reduce((x,y)=>x+y,0)/a.length; }
-  function stdev(a){
-    const m = avg(a);
-    return Math.sqrt(avg(a.map(x => (x-m)*(x-m))));
-  }
-
-  // Deriv's "digit" contracts are decided by the last digit of the displayed quote
-  // (e.g. 1234.567 -> last digit 7). Extract that directly from the string form so
-  // it matches Deriv's own definition regardless of each symbol's decimal precision.
   function lastDigitOf(price){
     const s = String(price).replace(/[^0-9]/g, '');
     return parseInt(s.charAt(s.length - 1), 10);
@@ -1268,17 +430,35 @@
     const counts = new Array(10).fill(0);
     digits.forEach(d => counts[d]++);
     const evenCount = digits.filter(d => d % 2 === 0).length;
-    const oddCount = digits.length - evenCount;
-    let mostFreqDigit = 0, leastFreqDigit = 0;
-    for (let d = 1; d < 10; d++){
-      if (counts[d] > counts[mostFreqDigit]) mostFreqDigit = d;
-      if (counts[d] < counts[leastFreqDigit]) leastFreqDigit = d;
-    }
-    const avgDigit = avg(digits);
-    return { digits, counts, evenCount, oddCount, mostFreqDigit, leastFreqDigit, avgDigit, lastDigit: digits[digits.length - 1] };
+    let mostFreqDigit = 0;
+    for (let d = 1; d < 10; d++) if (counts[d] > counts[mostFreqDigit]) mostFreqDigit = d;
+    return { digits, counts, evenCount, mostFreqDigit };
   }
 
-  // ---------------- Cross-market analysis engine ----------------
+  function updateStats(sym){
+    const arr = ticks[sym] || [];
+    statTicks.textContent = arr.length;
+    if (arr.length >= 2) {
+      const last = arr[arr.length-1].p, prev = arr[arr.length-2].p;
+      const chg = last - prev;
+      statChange.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(5);
+      statChange.className = 'value ' + (chg >= 0 ? 'up' : 'down');
+    }
+    const sig = computeSignal(sym);
+    if (!sig) {
+      statMomentum.textContent = '—'; statVol.textContent = '—';
+      signalLabel.textContent = 'Gathering ticks…'; signalBarFill.style.width = '0%';
+      return;
+    }
+    statMomentum.textContent = sig.momentum.toFixed(4) + '%';
+    statMomentum.className = 'value ' + (sig.momentum >= 0 ? 'up' : 'down');
+    statVol.textContent = sig.vol.toFixed(4) + '%';
+    signalLabel.textContent = sig.direction + ' bias · ' + sig.strength.toFixed(0) + '%';
+    signalBarFill.style.width = sig.strength + '%';
+    signalBarFill.style.background = sig.direction === 'UP' ? 'var(--up)' : 'var(--down)';
+  }
+
+  // ---------------- Analysis engine ----------------
   let analysisResults = {};
   let analysisLookback = 20;
   const CONTRACT_LABELS = {
@@ -1288,27 +468,16 @@
     OVER: 'Over', UNDER: 'Under'
   };
 
-  const TRADABLE_SUBMARKETS = ['Continuous Indices', 'Jump Indices'];
-  function isTradableForBot(sym){
-    const info = symbols[sym];
-    return info && TRADABLE_SUBMARKETS.includes(info.submarket);
-  }
-
-  // z-score of an observed proportion against an expected uniform-random baseline.
-  // Larger |z| = less likely to be sample-size noise, not a guarantee of anything.
   function zScore(observed, expected, n){
     const se = Math.sqrt(expected * (1 - expected) / n);
     return se > 0 ? (observed - expected) / se : 0;
   }
-  // Map a z-score to a 0-100 "confidence" display value via a simple saturating curve.
-  function zToConfidence(z){
-    return Math.min(100, Math.abs(z) * 28);
-  }
+  function zToConfidence(z){ return Math.min(100, Math.abs(z) * 28); }
 
   function computeAnalysisAll(){
     const results = {};
     const n = analysisLookback;
-    Object.keys(symbols).filter(isTradableForBot).forEach(sym => {
+    Object.keys(symbols).forEach(sym => {
       const sig = computeSignal(sym);
       const dstats = computeDigitStats(sym, n);
       const priceArr = (ticks[sym] || []).slice(-n);
@@ -1322,9 +491,6 @@
         }
       }
 
-      // Higher/Lower: same directional signal as Rise/Fall, but requires an explicit
-      // barrier. Scale it to ~1.5x the market's own recent volatility so it's a real
-      // Higher/Lower bet (not effectively identical to Rise/Fall with a near-zero gap).
       if (sig && priceArr.length >= n) {
         const prices = priceArr.map(p => p.p);
         const returns = [];
@@ -1357,7 +523,6 @@
           results.DIFFER = { symbol: sym, value: matchZ, pct: topFreqPct * 100, digit: dstats.mostFreqDigit };
         }
 
-        // Over 3 / Under 6 are Deriv's standard 60%-probability barriers for these contracts.
         const overCount = dstats.digits.filter(d => d > 3).length;
         const underCount = dstats.digits.filter(d => d < 6).length;
         const overPct = overCount / dstats.digits.length;
@@ -1370,7 +535,6 @@
     });
     analysisResults = results;
     renderAnalysisTable();
-    updatePickedMarketNote();
   }
 
   function renderAnalysisTable(){
@@ -1390,272 +554,7 @@
     }).join('');
   }
 
-  function updateStats(sym){
-    const arr = ticks[sym] || [];
-    statTicks.textContent = arr.length;
-    if (arr.length >= 2) {
-      const last = arr[arr.length-1].p, prev = arr[arr.length-2].p;
-      const chg = last - prev;
-      statChange.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(5);
-      statChange.className = 'value ' + (chg >= 0 ? 'up' : 'down');
-    }
-    const sig = computeSignal(sym);
-    if (!sig) {
-      statMomentum.textContent = '—'; statVol.textContent = '—';
-      signalLabel.textContent = 'Gathering ticks…'; signalBarFill.style.width = '0%';
-      return;
-    }
-    statMomentum.textContent = sig.momentum.toFixed(4) + '%';
-    statMomentum.className = 'value ' + (sig.momentum >= 0 ? 'up' : 'down');
-    statVol.textContent = sig.vol.toFixed(4) + '%';
-    signalLabel.textContent = sig.direction + ' bias · ' + sig.strength.toFixed(0) + '%';
-    signalBarFill.style.width = sig.strength + '%';
-    signalBarFill.style.background = sig.direction === 'UP' ? 'var(--up)' : 'var(--down)';
-  }
-
-  // ---------------- Bot controls ----------------
-  const runBtn = $('runBtn');
-  const botStatusNote = $('botStatusNote');
-  const riskMgtToggle = $('riskMgtToggle');
-  const riskMgtPanel = $('riskMgtPanel');
-  const speedInput = $('speedInput');
-  const contractTypeInput = $('contractTypeInput');
-  const contractHint = $('contractHint');
-  const contractHints = {
-    RISEUP: 'Trades CALL (Rise) on whichever market currently shows the strongest upward momentum.',
-    RISEDOWN: 'Trades PUT (Fall) on whichever market currently shows the strongest downward momentum.',
-    HIGHER: 'Trades Higher with a barrier scaled to the market\u2019s own recent volatility (~1.5x recent moves).',
-    LOWER: 'Trades Lower with a barrier scaled to the market\u2019s own recent volatility (~1.5x recent moves).',
-    EVEN: 'Trades Even on whichever market\u2019s last digit shows the strongest statistical skew toward even (z-score based, not just raw %).',
-    ODD: 'Trades Odd on whichever market\u2019s last digit shows the strongest statistical skew toward odd (z-score based).',
-    MATCH: 'Trades Matches on whichever market\u2019s dominant recent digit deviates most significantly from the expected 10% baseline.',
-    DIFFER: 'Trades Differs against whichever market\u2019s most statistically dominant recent digit (reversion bet).',
-    OVER: 'Trades Over 3 on whichever market\u2019s digits deviate most from the expected 60% baseline.',
-    UNDER: 'Trades Under 6 on whichever market\u2019s digits deviate most from the expected 60% baseline.'
-  };
-  const CONTRACT_TYPE_MAP = {
-    RISEUP: 'CALL', RISEDOWN: 'PUT', HIGHER: 'CALL', LOWER: 'PUT',
-    EVEN: 'DIGITEVEN', ODD: 'DIGITODD',
-    MATCH: 'DIGITMATCH', DIFFER: 'DIGITDIFF', OVER: 'DIGITOVER', UNDER: 'DIGITUNDER'
-  };
-  contractTypeInput.addEventListener('change', () => {
-    contractHint.textContent = contractHints[contractTypeInput.value] || '';
-    signalStreak = 0; lastSignalDirection = null;
-    updatePickedMarketNote();
-  });
-  let signalStreak = 0;
-  let lastSignalDirection = null;
-
-  function updatePickedMarketNote(){
-    const el = $('pickedMarketNote');
-    const cat = contractTypeInput.value;
-    const r = analysisResults[cat];
-    if (!r) { el.textContent = 'Waiting for analysis data on ' + CONTRACT_LABELS[cat] + '…'; return; }
-    const name = symbols[r.symbol] ? symbols[r.symbol].display_name : r.symbol;
-    el.textContent = 'Currently picking: ' + name + ' (' + r.value.toFixed(1) + '%)' + (autoTradeOn ? ' — bot is live' : '');
-  }
-
-  riskMgtToggle.addEventListener('click', () => {
-    const showing = riskMgtPanel.style.display !== 'none';
-    riskMgtPanel.style.display = showing ? 'none' : 'block';
-    riskMgtToggle.textContent = showing ? '⚙ Risk Mgt' : '⚙ Risk Mgt (hide)';
-  });
-
-  runBtn.addEventListener('click', () => {
-    if (!authorized) { flashRiskNote('Connect with an API token to enable the bot.'); return; }
-    if (getApiMode() === 'new' && !tradeWsReady) { flashRiskNote('Trading session for New API mode isn\'t ready yet — check the banner above for details, or use Legacy mode.'); return; }
-    autoTradeOn = !autoTradeOn;
-    runBtn.classList.toggle('running', autoTradeOn);
-    runBtn.textContent = autoTradeOn ? '■ Stop' : '▶ Run';
-    if (autoTradeOn) {
-      tradingHalted = false;
-      martingaleStep = 0;
-      signalStreak = 0;
-      lastSignalDirection = null;
-      currentStake = parseFloat(stakeInput.value) || 1;
-      botStatusNote.textContent = 'Bot running — ' + CONTRACT_LABELS[contractTypeInput.value];
-    } else {
-      botStatusNote.textContent = 'Bot is not running…';
-    }
-    updatePickedMarketNote();
-  });
-
-  function flashRiskNote(msg){
-    const note = $('riskNote');
-    const original = note.textContent;
-    note.textContent = msg;
-    note.style.color = 'var(--warn)';
-    setTimeout(() => { note.textContent = original; note.style.color = ''; }, 3000);
-  }
-
-  // Called on every incoming tick for every symbol (not just the one open in Markets),
-  // since the bot's target symbol is chosen dynamically from live analysis rather than
-  // pinned to whichever chart happens to be open.
-  function checkBotOpportunity(){
-    if (!autoTradeOn || !authorized || pendingContract || tradingHalted) return;
-    if (getApiMode() === 'new' && !tradeWsReady) { haltTrading('New API trading connection isn\'t ready — bot stopped rather than risk sending trades to the wrong place.'); return; }
-
-    const lossLimit = parseFloat(lossLimitInput.value) || 0;
-    const profitTarget = parseFloat(profitTargetInput.value) || 0;
-    if (sessionPL <= -Math.abs(lossLimit)) { haltTrading('Daily loss limit reached.'); return; }
-    if (sessionPL >= Math.abs(profitTarget)) { haltTrading('Daily profit target reached.'); return; }
-
-    const category = contractTypeInput.value;
-    const pick = analysisResults[category];
-    if (!pick) return;
-
-    const threshold = parseFloat(threshInput.value) || 65;
-    if (pick.value < threshold) { signalStreak = 0; lastSignalDirection = null; return; }
-
-    const streakKey = category + ':' + pick.symbol;
-    if (streakKey === lastSignalDirection) signalStreak++; else { signalStreak = 1; lastSignalDirection = streakKey; }
-    const speedTicks = parseInt(speedInput.value) || 1;
-    if (signalStreak < speedTicks) return;
-    signalStreak = 0;
-
-    const duration = parseInt(durInput.value) || 5;
-    const contractType = CONTRACT_TYPE_MAP[category];
-    pendingContract = true;
-
-    const payload = {
-      proposal: 1,
-      subscribe: 1,
-      amount: Number(currentStake.toFixed(2)),
-      basis: 'stake',
-      contract_type: contractType,
-      currency: (symbols[pick.symbol] && symbols[pick.symbol].currency) || 'USD',
-      duration: duration,
-      duration_unit: 't'
-    };
-    // Deriv renamed 'symbol' to 'underlying_symbol' on the new Options API's proposal
-    // schema; the legacy WebSocket protocol still expects 'symbol'. Use the actual
-    // underlying_symbol value returned by active_symbols rather than assuming it
-    // matches the symbol code, since Deriv explicitly said not to assume that.
-    if (getApiMode() === 'new') {
-      payload.underlying_symbol = (symbols[pick.symbol] && symbols[pick.symbol].underlying_symbol) || pick.symbol;
-    } else {
-      payload.symbol = pick.symbol;
-    }
-    if (pick.digit !== undefined) payload.barrier = String(pick.digit);
-    if (pick.barrier !== undefined) payload.barrier = pick.barrier;
-    send(payload);
-  }
-
-  function haltTrading(msg){
-    tradingHalted = true;
-    autoTradeOn = false;
-    runBtn.classList.remove('running');
-    runBtn.textContent = '▶ Run';
-    botStatusNote.textContent = 'Bot is not running…';
-    flashRiskNote(msg);
-  }
-
-  function pollContract(contractId){
-    const interval = setInterval(async () => {
-      const res = await sendAndWait({ proposal_open_contract: 1, contract_id: contractId });
-      const c = res.proposal_open_contract;
-      if (c && c.is_sold) {
-        clearInterval(interval);
-        const profit = Number(c.profit);
-        sessionPL += profit;
-        tradeCount++;
-        if (profit > 0) { winCount++; martingaleStep = 0; currentStake = parseFloat(stakeInput.value) || 1; }
-        else {
-          const maxSteps = parseInt(martStepsInput.value) || 0;
-          const mult = parseFloat(martInput.value) || 1;
-          if (martingaleStep < maxSteps) {
-            martingaleStep++;
-            currentStake = currentStake * mult;
-          } else {
-            martingaleStep = 0;
-            currentStake = parseFloat(stakeInput.value) || 1;
-          }
-        }
-        updatePL();
-        logTrade(contractId, (profit >= 0 ? 'Win' : 'Loss') + ' on ' + c.display_name, profit);
-      }
-    }, 2000);
-  }
-
-  function updatePL(){
-    plVal.textContent = (sessionPL >= 0 ? '+' : '') + '$' + sessionPL.toFixed(2);
-    plVal.style.color = sessionPL >= 0 ? 'var(--up)' : 'var(--down)';
-    tradeCountVal.textContent = tradeCount;
-    winRateVal.textContent = tradeCount ? Math.round((winCount/tradeCount)*100) + '%' : '—';
-  }
-
-  function logTrade(contractId, text, profit){
-    if (tradeLog.querySelector('.note')) tradeLog.innerHTML = '';
-    const row = document.createElement('div');
-    row.className = 'log-row';
-    const cls = profit === null ? '' : (profit >= 0 ? 'win' : 'loss');
-    const amtText = profit === null ? '' : ((profit >= 0 ? '+' : '') + '$' + profit.toFixed(2));
-    row.innerHTML = '<span>' + text + '</span><span class="' + cls + '">' + amtText + '</span>';
-    tradeLog.prepend(row);
-  }
-
-  // ---------------- Wire up ----------------
-  let lastLegacyAppId = '1089';
-  let lastNewAppId = '33JMvHGHnwUEW0sIJlVbU'; // permanent default App ID for New API mode
-  let lastLegacyToken = '';
-  let lastNewToken = '';
-  document.querySelectorAll('input[name="apiMode"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      if (getApiMode() === 'new') {
-        lastLegacyAppId = appIdInput.value;
-        lastLegacyToken = tokenInput.value;
-        appIdInput.value = lastNewAppId;
-        tokenInput.value = lastNewToken;
-        appIdInput.placeholder = 'App ID (alphanumeric, from developers.deriv.com)';
-        tokenInput.placeholder = 'Personal Access Token (PAT)';
-        optLogin.style.display = 'none';
-        optSignup.style.display = 'none';
-      } else {
-        lastNewAppId = appIdInput.value;
-        lastNewToken = tokenInput.value;
-        appIdInput.value = lastLegacyAppId;
-        tokenInput.value = lastLegacyToken;
-        appIdInput.placeholder = 'App ID';
-        tokenInput.placeholder = 'API token (optional, for trading)';
-        optLogin.style.display = '';
-        optSignup.style.display = '';
-      }
-    });
-  });
-
-  connectBtn.addEventListener('click', () => {
-    const mode = getApiMode();
-    const alreadyOpen = ws && ws.readyState === 1 && currentConnectedMode === mode;
-
-    if (!alreadyOpen) { connect(); return; }
-
-    const token = tokenInput.value.trim();
-    if (!token) { closeModal(); return; }
-
-    if (mode === 'legacy') {
-      if (/^pat_/i.test(token)) {
-        const banner = document.getElementById('errBanner');
-        banner.textContent = '⚠ This looks like a New Options API token, but Legacy mode is selected. Switch modes or use a token from app.deriv.com/account/api-token.';
-        banner.classList.add('show');
-        return;
-      }
-      authFailed = false;
-      send({ authorize: token });
-      closeModal();
-    } else {
-      if (!/^pat_/i.test(token)) {
-        const banner = document.getElementById('errBanner');
-        banner.textContent = '⚠ This doesn\'t look like a New Options API token (those start with "pat_").';
-        banner.classList.add('show');
-        return;
-      }
-      fetchNewApiAccount(token);
-      closeModal();
-    }
-  });
-  disconnectBtn.addEventListener('click', disconnect);
-
-  // ---------------- Page navigation ----------------
+  // ---------------- Page nav ----------------
   document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1664,30 +563,84 @@
       btn.classList.add('active');
     });
   });
-  $('navLoginBtn').addEventListener('click', () => {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    $('navLoginBtn').classList.add('active');
-    openModal();
+
+  $('lookbackInput').addEventListener('change', (e) => {
+    analysisLookback = parseInt(e.target.value) || 20;
+    computeAnalysisAll();
   });
 
   window.addEventListener('beforeunload', () => { if (ws) ws.close(); });
 
-  parseOAuthReturn();
-  parsePkceReturn();
-
-  // Markets shouldn't be gated behind login — open a guest (unauthorized) market-data
-  // feed immediately on page load, using whatever mode/App ID is currently selected.
-  // Logging in later (via the modal) authorizes this same connection in place rather
-  // than opening a second one.
   connect();
+  // ---------------- Gold page ----------------
+  const GOLD_SYMBOL = 'frxXAUUSD';
+  function updateGoldSnapshot(){
+    const arr = ticks[GOLD_SYMBOL] || [];
+    const priceEl = $('goldPrice');
+    if (!priceEl) return;
+    if (arr.length) {
+      const last = arr[arr.length - 1].p;
+      priceEl.textContent = last;
+      $('goldEntry').placeholder = last;
+      if (!$('goldEntry').value) $('goldEntry').value = last;
+    }
+    if (arr.length >= 2) {
+      const chg = arr[arr.length-1].p - arr[arr.length-2].p;
+      const chEl = $('goldChange');
+      chEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2);
+      chEl.className = 'value ' + (chg >= 0 ? 'up' : 'down');
+    }
+    const sig = computeSignal(GOLD_SYMBOL);
+    const sigEl = $('goldSignal'), volEl = $('goldVol');
+    if (sig) {
+      sigEl.textContent = sig.direction + ' bias · ' + sig.strength.toFixed(0) + '%';
+      sigEl.className = 'value ' + (sig.direction === 'UP' ? 'up' : 'down');
+      volEl.textContent = sig.vol.toFixed(4) + '%';
+    } else {
+      sigEl.textContent = 'Gathering ticks…';
+    }
+  }
 
-  // Keep the Analysis page (and the bot's dynamic symbol picks) fresh continuously,
-  // regardless of which page is currently in view.
-  setInterval(computeAnalysisAll, 2500);
-  document.getElementById('lookbackInput').addEventListener('change', (e) => {
-    analysisLookback = parseInt(e.target.value) || 20;
-    computeAnalysisAll();
+  $('goldCalcBtn').addEventListener('click', () => {
+    const balance = parseFloat($('goldBalance').value) || 0;
+    const riskPct = parseFloat($('goldRiskPct').value) || 0;
+    const entry = parseFloat($('goldEntry').value) || 0;
+    const stop = parseFloat($('goldStop').value) || 0;
+    const target = parseFloat($('goldTarget').value) || 0;
+    const ozPerLot = parseFloat($('goldOzPerLot').value) || 100;
+    const resultEl = $('goldResult');
+
+    if (!balance || !entry || !stop || entry === stop) {
+      resultEl.innerHTML = '<div class="analysis-intro" style="color:var(--warn);">Fill in balance, entry price, and a stop-loss price that differs from entry.</div>';
+      return;
+    }
+
+    const riskAmount = balance * (riskPct / 100);
+    const stopDistance = Math.abs(entry - stop);
+    const riskPerStandardLot = stopDistance * ozPerLot;
+    const lotSize = riskPerStandardLot > 0 ? riskAmount / riskPerStandardLot : 0;
+    const direction = entry > stop ? 'Buy (Long)' : 'Sell (Short)';
+
+    let rewardHtml = '';
+    if (target && target !== entry) {
+      const rewardDistance = Math.abs(target - entry);
+      const rewardAmount = rewardDistance * ozPerLot * lotSize;
+      const rrRatio = rewardDistance / stopDistance;
+      rewardHtml =
+        '<div class="stat-card" style="margin-top:10px;"><div class="label">Potential reward at target</div><div class="value up">$' + rewardAmount.toFixed(2) + '</div></div>' +
+        '<div class="stat-card" style="margin-top:10px;"><div class="label">Risk : Reward ratio</div><div class="value">1 : ' + rrRatio.toFixed(2) + '</div></div>';
+    }
+
+    resultEl.innerHTML =
+      '<div class="stat-card"><div class="label">Direction implied by your stop</div><div class="value">' + direction + '</div></div>' +
+      '<div class="stat-card" style="margin-top:10px;"><div class="label">Amount at risk</div><div class="value down">$' + riskAmount.toFixed(2) + '</div></div>' +
+      '<div class="stat-card" style="margin-top:10px;"><div class="label">Suggested lot size</div><div class="value">' + lotSize.toFixed(3) + ' lots</div></div>' +
+      rewardHtml +
+      '<div class="analysis-intro" style="margin-top:12px;">This sizes the position so a hit on your stop-loss costs exactly your chosen risk %. It does not predict whether price will reach your stop or your target.</div>';
   });
+
+  setInterval(computeAnalysisAll, 2500);
+  setInterval(updateGoldSnapshot, 1000);
 })();
 </script>
 </body>
