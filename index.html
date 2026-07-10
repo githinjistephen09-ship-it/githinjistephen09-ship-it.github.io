@@ -181,6 +181,26 @@
       <div class="stat-card"><div class="label">Last change</div><div class="value" id="goldChange">—</div></div>
     </div>
 
+    <div class="main-title" style="font-size:15px;margin:18px 0 10px;">Market structure</div>
+    <div class="stat-grid" style="margin-bottom:10px;">
+      <div class="stat-card"><div class="label">Structure trend</div><div class="value" id="goldStructure">—</div></div>
+      <div class="stat-card"><div class="label">Last event</div><div class="value" id="goldBosChoch">—</div></div>
+      <div class="stat-card"><div class="label">Up/down tick pressure</div><div class="value" id="goldPressure">—</div></div>
+    </div>
+    <div class="analysis-intro" style="margin-bottom:14px;">
+      "Structure trend" comes from sequences of swing highs/lows in the candle data. "Up/down tick pressure" is the ratio of up-ticks to down-ticks over the last 40 ticks — a rough proxy for buying vs. selling activity, not real order-flow or volume data, which Deriv's feed doesn't expose.
+    </div>
+
+    <div class="main-title" style="font-size:15px;margin:18px 0 10px;">Fair Value Gaps (FVG)</div>
+    <div class="analysis-intro" style="margin-bottom:10px;">
+      Detected using the standard 3-candle imbalance pattern. Each one is tracked live — "Filled" means price has actually revisited that zone since detection, on this data, not a borrowed statistic.
+    </div>
+    <table class="analysis-table" id="fvgTable">
+      <thead><tr><th>Type</th><th>Zone</th><th style="text-align:right;">Status</th></tr></thead>
+      <tbody id="fvgTableBody"><tr><td colspan="3" class="analysis-empty">Watching for gaps…</td></tr></tbody>
+    </table>
+    <div class="analysis-intro" style="margin-top:10px;" id="fvgFillRateNote">Fill-rate stats will appear once a few gaps have been detected.</div>
+
     <div class="main-title" style="font-size:15px;margin:18px 0 10px;">Position size calculator</div>
     <div class="row"><label>Account balance (USD)</label><input type="number" id="goldBalance" class="bot-select" value="1000" style="width:110px;text-align:right;"></div>
     <div class="row"><label>Risk per trade (%)</label><input type="number" id="goldRiskPct" class="bot-select" value="1" step="0.5" style="width:110px;text-align:right;"></div>
@@ -574,6 +594,82 @@
   connect();
   // ---------------- Gold page ----------------
   const GOLD_SYMBOL = 'frxXAUUSD';
+
+  // ---- Market structure: swing highs/lows, trend, BOS/CHoCH ----
+  let goldStructureState = { trend: null, lastSwingHigh: null, lastSwingLow: null, lastEvent: null };
+  function computeMarketStructure(sym){
+    const arr = candles[sym] || [];
+    if (arr.length < 15) return null;
+    const swingHighs = [], swingLows = [];
+    for (let i = 3; i < arr.length - 3; i++) {
+      const c = arr[i];
+      const isHigh = arr.slice(i-3,i).every(x => x.h <= c.h) && arr.slice(i+1,i+4).every(x => x.h <= c.h);
+      const isLow = arr.slice(i-3,i).every(x => x.l >= c.l) && arr.slice(i+1,i+4).every(x => x.l >= c.l);
+      if (isHigh) swingHighs.push({ i, price: c.h });
+      if (isLow) swingLows.push({ i, price: c.l });
+    }
+    if (swingHighs.length < 2 || swingLows.length < 2) return null;
+
+    const lastHigh = swingHighs[swingHighs.length - 1], prevHigh = swingHighs[swingHighs.length - 2];
+    const lastLow = swingLows[swingLows.length - 1], prevLow = swingLows[swingLows.length - 2];
+    const higherHighs = lastHigh.price > prevHigh.price;
+    const higherLows = lastLow.price > prevLow.price;
+    let trend = 'Ranging';
+    if (higherHighs && higherLows) trend = 'Uptrend';
+    else if (!higherHighs && !higherLows) trend = 'Downtrend';
+
+    const lastClose = arr[arr.length - 1].c;
+    let event = null;
+    if (trend === 'Uptrend' && lastClose < lastLow.price) event = 'CHoCH — broke below last swing low';
+    else if (trend === 'Downtrend' && lastClose > lastHigh.price) event = 'CHoCH — broke above last swing high';
+    else if (lastClose > lastHigh.price) event = 'BOS — broke above last swing high';
+    else if (lastClose < lastLow.price) event = 'BOS — broke below last swing low';
+
+    return { trend, event, lastSwingHigh: lastHigh.price, lastSwingLow: lastLow.price };
+  }
+
+  // ---- Fair Value Gaps: standard 3-candle imbalance, tracked live for real fills ----
+  let goldFvgs = []; // { type:'bullish'|'bearish', top, bottom, detectedAt, filled }
+  function detectFVGs(sym){
+    const arr = candles[sym] || [];
+    if (arr.length < 3) return;
+    const c1 = arr[arr.length - 3], c2 = arr[arr.length - 2], c3 = arr[arr.length - 1];
+    const alreadyHave = (top, bottom) => goldFvgs.some(g => Math.abs(g.top - top) < 0.001 && Math.abs(g.bottom - bottom) < 0.001);
+
+    if (c1.h < c3.l) {
+      const top = c3.l, bottom = c1.h;
+      if (!alreadyHave(top, bottom)) goldFvgs.push({ type: 'bullish', top, bottom, detectedAt: Date.now(), filled: false });
+    }
+    if (c1.l > c3.h) {
+      const top = c1.l, bottom = c3.h;
+      if (!alreadyHave(top, bottom)) goldFvgs.push({ type: 'bearish', top, bottom, detectedAt: Date.now(), filled: false });
+    }
+
+    const lastPrice = c3.c;
+    goldFvgs.forEach(g => {
+      if (!g.filled && lastPrice <= g.top && lastPrice >= g.bottom) g.filled = true;
+    });
+    if (goldFvgs.length > 25) goldFvgs = goldFvgs.slice(-25);
+  }
+
+  function renderFVGTable(){
+    const body = $('fvgTableBody');
+    if (!goldFvgs.length) {
+      body.innerHTML = '<tr><td colspan="3" class="analysis-empty">Watching for gaps…</td></tr>';
+    } else {
+      body.innerHTML = goldFvgs.slice(-8).reverse().map(g => {
+        const zone = g.bottom.toFixed(2) + ' – ' + g.top.toFixed(2);
+        const status = g.filled ? '<span class="value up" style="font-size:12px;">Filled</span>' : '<span class="value" style="font-size:12px;color:var(--warn);">Open</span>';
+        return '<tr><td>' + (g.type === 'bullish' ? 'Bullish' : 'Bearish') + '</td><td class="sym">' + zone + '</td><td class="metric">' + status + '</td></tr>';
+      }).join('');
+    }
+    const total = goldFvgs.length;
+    const filled = goldFvgs.filter(g => g.filled).length;
+    $('fvgFillRateNote').textContent = total >= 3
+      ? 'Observed on this session so far: ' + filled + ' of ' + total + ' detected gaps (' + ((filled/total)*100).toFixed(0) + '%) have been filled. Small sample — treat as a running observation, not a statistic.'
+      : 'Fill-rate stats will appear once a few gaps have been detected.';
+  }
+
   function updateGoldSnapshot(){
     const arr = ticks[GOLD_SYMBOL] || [];
     const priceEl = $('goldPrice');
@@ -599,6 +695,32 @@
     } else {
       sigEl.textContent = 'Gathering ticks…';
     }
+
+    // Tick-direction pressure proxy (NOT real volume/order-flow)
+    const recentTicks = arr.slice(-40);
+    if (recentTicks.length >= 10) {
+      let ups = 0, downs = 0;
+      for (let i = 1; i < recentTicks.length; i++) {
+        if (recentTicks[i].p > recentTicks[i-1].p) ups++;
+        else if (recentTicks[i].p < recentTicks[i-1].p) downs++;
+      }
+      const total = ups + downs;
+      const upPct = total ? (ups / total * 100) : 50;
+      $('goldPressure').textContent = upPct.toFixed(0) + '% up-ticks';
+      $('goldPressure').className = 'value ' + (upPct >= 50 ? 'up' : 'down');
+    }
+
+    // Market structure
+    const structure = computeMarketStructure(GOLD_SYMBOL);
+    if (structure) {
+      $('goldStructure').textContent = structure.trend;
+      $('goldStructure').className = 'value ' + (structure.trend === 'Uptrend' ? 'up' : structure.trend === 'Downtrend' ? 'down' : '');
+      $('goldBosChoch').textContent = structure.event || 'No break yet';
+    }
+
+    // Fair Value Gaps
+    detectFVGs(GOLD_SYMBOL);
+    renderFVGTable();
   }
 
   $('goldCalcBtn').addEventListener('click', () => {
