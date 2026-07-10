@@ -367,10 +367,18 @@
   <div class="analysis-page">
     <div class="main-title" style="font-size:20px;margin-bottom:6px;">Market Analysis</div>
     <div class="analysis-intro">
-      Ranks Volatility and Jump indices live by which one currently shows the strongest signal per contract type — e.g. which market's last-digit distribution most favors Even, or which shows the strongest recent momentum for Rise/Fall. Restricted to these two families since they're the only ones Deriv allows for these contract types (Boom/Crash, Step, and Range Break aren't eligible). Recomputed every few seconds from live ticks. These are frequency/momentum heuristics, not predictions — Deriv's synthetic indices are designed to be close to statistically fair.
+      Ranks Volatility and Jump indices live per contract type, restricted to these two families since they're the only ones Deriv allows for these contracts. The "Metric" column is a <strong>z-score-based confidence</strong> (0–100), not a raw percentage — it measures how statistically unusual the observed skew is against the expected random baseline, given the sample size. A 60% skew on 20 ticks is much less meaningful than a 60% skew on 100 ticks; this accounts for that instead of treating them the same. Still a heuristic, not a prediction — Deriv's synthetic indices are designed to be close to statistically fair.
+    </div>
+    <div class="row" style="margin-bottom:14px;">
+      <label>Lookback window</label>
+      <select id="lookbackInput" class="bot-select" style="width:auto;">
+        <option value="20">20 ticks (fast, noisier)</option>
+        <option value="50">50 ticks (balanced)</option>
+        <option value="100">100 ticks (slow, more reliable)</option>
+      </select>
     </div>
     <table class="analysis-table" id="analysisTable">
-      <thead><tr><th>Contract</th><th>Best market</th><th style="text-align:right;">Metric</th></tr></thead>
+      <thead><tr><th>Contract</th><th>Best market</th><th style="text-align:right;">Confidence</th></tr></thead>
       <tbody id="analysisTableBody">
         <tr><td colspan="3" class="analysis-empty">Waiting for enough live ticks across markets…</td></tr>
       </tbody>
@@ -400,6 +408,8 @@
         <select id="contractTypeInput" class="bot-select" style="width:auto;min-width:150px;">
           <option value="RISEUP">Rise (Up)</option>
           <option value="RISEDOWN">Fall (Down)</option>
+          <option value="HIGHER">Higher</option>
+          <option value="LOWER">Lower</option>
           <option value="EVEN">Even</option>
           <option value="ODD">Odd</option>
           <option value="MATCH">Matches</option>
@@ -1269,61 +1279,93 @@
   }
 
   // ---------------- Cross-market analysis engine ----------------
-  // Ranks every currently-subscribed symbol per contract category and keeps the
-  // winner in `analysisResults`, which both the Analysis page and the Trade bot read from.
   let analysisResults = {};
+  let analysisLookback = 20;
   const CONTRACT_LABELS = {
-    RISEUP:  'Rise (CALL)', RISEDOWN: 'Fall (PUT)',
+    RISEUP: 'Rise (CALL)', RISEDOWN: 'Fall (PUT)',
+    HIGHER: 'Higher', LOWER: 'Lower',
     EVEN: 'Even', ODD: 'Odd', MATCH: 'Matches', DIFFER: 'Differs',
     OVER: 'Over', UNDER: 'Under'
   };
 
-  // Deriv only allows Rise/Fall and digit contracts on Volatility and Jump indices —
-  // not Boom/Crash, Step, or Range Break. Restrict analysis (and therefore what the
-  // bot ever picks) to those two families.
   const TRADABLE_SUBMARKETS = ['Continuous Indices', 'Jump Indices'];
   function isTradableForBot(sym){
     const info = symbols[sym];
     return info && TRADABLE_SUBMARKETS.includes(info.submarket);
   }
 
+  // z-score of an observed proportion against an expected uniform-random baseline.
+  // Larger |z| = less likely to be sample-size noise, not a guarantee of anything.
+  function zScore(observed, expected, n){
+    const se = Math.sqrt(expected * (1 - expected) / n);
+    return se > 0 ? (observed - expected) / se : 0;
+  }
+  // Map a z-score to a 0-100 "confidence" display value via a simple saturating curve.
+  function zToConfidence(z){
+    return Math.min(100, Math.abs(z) * 28);
+  }
+
   function computeAnalysisAll(){
     const results = {};
+    const n = analysisLookback;
     Object.keys(symbols).filter(isTradableForBot).forEach(sym => {
       const sig = computeSignal(sym);
-      const dstats = computeDigitStats(sym, 20);
+      const dstats = computeDigitStats(sym, n);
+      const priceArr = (ticks[sym] || []).slice(-n);
 
       if (sig) {
-        const upKey = 'RISEUP', downKey = 'RISEDOWN';
-        if (sig.direction === 'UP' && (!results[upKey] || sig.strength > results[upKey].value)) {
-          results[upKey] = { symbol: sym, value: sig.strength };
+        if (sig.direction === 'UP' && (!results.RISEUP || sig.strength > results.RISEUP.value)) {
+          results.RISEUP = { symbol: sym, value: sig.strength };
         }
-        if (sig.direction === 'DOWN' && (!results[downKey] || sig.strength > results[downKey].value)) {
-          results[downKey] = { symbol: sym, value: sig.strength };
+        if (sig.direction === 'DOWN' && (!results.RISEDOWN || sig.strength > results.RISEDOWN.value)) {
+          results.RISEDOWN = { symbol: sym, value: sig.strength };
+        }
+      }
+
+      // Higher/Lower: same directional signal as Rise/Fall, but requires an explicit
+      // barrier. Scale it to ~1.5x the market's own recent volatility so it's a real
+      // Higher/Lower bet (not effectively identical to Rise/Fall with a near-zero gap).
+      if (sig && priceArr.length >= n) {
+        const prices = priceArr.map(p => p.p);
+        const returns = [];
+        for (let i = 1; i < prices.length; i++) returns.push((prices[i] - prices[i-1]) / prices[i-1]);
+        const vol = stdev(returns);
+        const lastPrice = prices[prices.length - 1];
+        const barrierOffset = (lastPrice * vol * 1.5).toFixed(5);
+        if (sig.direction === 'UP' && (!results.HIGHER || sig.strength > results.HIGHER.value)) {
+          results.HIGHER = { symbol: sym, value: sig.strength, barrier: '+' + barrierOffset };
+        }
+        if (sig.direction === 'DOWN' && (!results.LOWER || sig.strength > results.LOWER.value)) {
+          results.LOWER = { symbol: sym, value: sig.strength, barrier: '-' + barrierOffset };
         }
       }
 
       if (dstats) {
-        const evenPct = (dstats.evenCount / dstats.digits.length) * 100;
-        const oddPct = 100 - evenPct;
-        if (!results.EVEN || evenPct > results.EVEN.value) results.EVEN = { symbol: sym, value: evenPct };
-        if (!results.ODD || oddPct > results.ODD.value) results.ODD = { symbol: sym, value: oddPct };
+        const evenPct = dstats.evenCount / dstats.digits.length;
+        const oddPct = 1 - evenPct;
+        const evenZ = zToConfidence(zScore(evenPct, 0.5, n));
+        const oddZ = zToConfidence(zScore(oddPct, 0.5, n));
+        if (!results.EVEN || evenZ > results.EVEN.value) results.EVEN = { symbol: sym, value: evenZ, pct: evenPct * 100 };
+        if (!results.ODD || oddZ > results.ODD.value) results.ODD = { symbol: sym, value: oddZ, pct: oddPct * 100 };
 
-        const topFreqPct = (dstats.counts[dstats.mostFreqDigit] / dstats.digits.length) * 100;
-        const lowFreqPct = (dstats.counts[dstats.leastFreqDigit] / dstats.digits.length) * 100;
-        // Match: bet the digit that's been most frequent will repeat.
-        if (!results.MATCH || topFreqPct > results.MATCH.value) {
-          results.MATCH = { symbol: sym, value: topFreqPct, digit: dstats.mostFreqDigit };
+        const topFreqPct = dstats.counts[dstats.mostFreqDigit] / dstats.digits.length;
+        const matchZ = zToConfidence(zScore(topFreqPct, 0.1, n));
+        if (!results.MATCH || matchZ > results.MATCH.value) {
+          results.MATCH = { symbol: sym, value: matchZ, pct: topFreqPct * 100, digit: dstats.mostFreqDigit };
         }
-        // Differ: bet against whichever digit has dominated most strongly (reversion).
-        if (!results.DIFFER || topFreqPct > results.DIFFER.value) {
-          results.DIFFER = { symbol: sym, value: topFreqPct, digit: dstats.mostFreqDigit };
+        if (!results.DIFFER || matchZ > results.DIFFER.value) {
+          results.DIFFER = { symbol: sym, value: matchZ, pct: topFreqPct * 100, digit: dstats.mostFreqDigit };
         }
 
-        const overSkew = Math.max(0, dstats.avgDigit - 4.5) * (200/9);
-        const underSkew = Math.max(0, 4.5 - dstats.avgDigit) * (200/9);
-        if (!results.OVER || overSkew > results.OVER.value) results.OVER = { symbol: sym, value: overSkew, digit: 3 };
-        if (!results.UNDER || underSkew > results.UNDER.value) results.UNDER = { symbol: sym, value: underSkew, digit: 6 };
+        // Over 3 / Under 6 are Deriv's standard 60%-probability barriers for these contracts.
+        const overCount = dstats.digits.filter(d => d > 3).length;
+        const underCount = dstats.digits.filter(d => d < 6).length;
+        const overPct = overCount / dstats.digits.length;
+        const underPct = underCount / dstats.digits.length;
+        const overZ = zToConfidence(zScore(overPct, 0.6, n));
+        const underZ = zToConfidence(zScore(underPct, 0.6, n));
+        if (!results.OVER || overZ > results.OVER.value) results.OVER = { symbol: sym, value: overZ, pct: overPct * 100, digit: 3 };
+        if (!results.UNDER || underZ > results.UNDER.value) results.UNDER = { symbol: sym, value: underZ, pct: underPct * 100, digit: 6 };
       }
     });
     analysisResults = results;
@@ -1336,14 +1378,15 @@
     const keys = Object.keys(CONTRACT_LABELS);
     const rows = keys.filter(k => analysisResults[k]);
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="3" class="analysis-empty">Waiting for enough live ticks across markets…</td></tr>';
+      body.innerHTML = '<tr><td colspan="3" class="analysis-empty">Waiting for enough live ticks across markets… (needs ' + analysisLookback + ' ticks per market)</td></tr>';
       return;
     }
     body.innerHTML = rows.map(k => {
       const r = analysisResults[k];
       const name = symbols[r.symbol] ? symbols[r.symbol].display_name : r.symbol;
-      const digitPart = (r.digit !== undefined) ? ' (digit ' + r.digit + ')' : '';
-      return '<tr><td>' + CONTRACT_LABELS[k] + '</td><td class="sym">' + name + digitPart + '</td><td class="metric">' + r.value.toFixed(1) + '%</td></tr>';
+      const extra = r.digit !== undefined ? ' (digit ' + r.digit + ')' : (r.barrier !== undefined ? ' (barrier ' + r.barrier + ')' : '');
+      const pctLabel = r.pct !== undefined ? ' · ' + r.pct.toFixed(1) + '% observed' : '';
+      return '<tr><td>' + CONTRACT_LABELS[k] + '</td><td class="sym">' + name + extra + '</td><td class="metric">' + r.value.toFixed(0) + '%' + pctLabel + '</td></tr>';
     }).join('');
   }
 
@@ -1381,15 +1424,18 @@
   const contractHints = {
     RISEUP: 'Trades CALL (Rise) on whichever market currently shows the strongest upward momentum.',
     RISEDOWN: 'Trades PUT (Fall) on whichever market currently shows the strongest downward momentum.',
-    EVEN: 'Trades Even on whichever market\u2019s last digit currently skews most toward even.',
-    ODD: 'Trades Odd on whichever market\u2019s last digit currently skews most toward odd.',
-    MATCH: 'Trades Matches on whichever market has the most dominant recent digit, betting it repeats.',
-    DIFFER: 'Trades Differs against whichever market\u2019s most dominant recent digit (reversion bet).',
-    OVER: 'Trades Over on whichever market\u2019s recent digits skew highest.',
-    UNDER: 'Trades Under on whichever market\u2019s recent digits skew lowest.'
+    HIGHER: 'Trades Higher with a barrier scaled to the market\u2019s own recent volatility (~1.5x recent moves).',
+    LOWER: 'Trades Lower with a barrier scaled to the market\u2019s own recent volatility (~1.5x recent moves).',
+    EVEN: 'Trades Even on whichever market\u2019s last digit shows the strongest statistical skew toward even (z-score based, not just raw %).',
+    ODD: 'Trades Odd on whichever market\u2019s last digit shows the strongest statistical skew toward odd (z-score based).',
+    MATCH: 'Trades Matches on whichever market\u2019s dominant recent digit deviates most significantly from the expected 10% baseline.',
+    DIFFER: 'Trades Differs against whichever market\u2019s most statistically dominant recent digit (reversion bet).',
+    OVER: 'Trades Over 3 on whichever market\u2019s digits deviate most from the expected 60% baseline.',
+    UNDER: 'Trades Under 6 on whichever market\u2019s digits deviate most from the expected 60% baseline.'
   };
   const CONTRACT_TYPE_MAP = {
-    RISEUP: 'CALL', RISEDOWN: 'PUT', EVEN: 'DIGITEVEN', ODD: 'DIGITODD',
+    RISEUP: 'CALL', RISEDOWN: 'PUT', HIGHER: 'CALL', LOWER: 'PUT',
+    EVEN: 'DIGITEVEN', ODD: 'DIGITODD',
     MATCH: 'DIGITMATCH', DIFFER: 'DIGITDIFF', OVER: 'DIGITOVER', UNDER: 'DIGITUNDER'
   };
   contractTypeInput.addEventListener('change', () => {
@@ -1491,6 +1537,7 @@
       payload.symbol = pick.symbol;
     }
     if (pick.digit !== undefined) payload.barrier = String(pick.digit);
+    if (pick.barrier !== undefined) payload.barrier = pick.barrier;
     send(payload);
   }
 
@@ -1637,6 +1684,10 @@
   // Keep the Analysis page (and the bot's dynamic symbol picks) fresh continuously,
   // regardless of which page is currently in view.
   setInterval(computeAnalysisAll, 2500);
+  document.getElementById('lookbackInput').addEventListener('change', (e) => {
+    analysisLookback = parseInt(e.target.value) || 20;
+    computeAnalysisAll();
+  });
 })();
 </script>
 </body>
